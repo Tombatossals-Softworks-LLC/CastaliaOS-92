@@ -59,6 +59,11 @@ screenshots are in DOCS/SCREENSHOTS/:
     21-program-drawer-13h.png .... the Program Drawer (windowed launcher)
     22-program-drawer-12h.png .... the Program Drawer at 640x480
     23-theme-workbench.png ....... the "workbench" theme (Amiga homage)
+    24-system-inspector.png ...... the System Inspector: CPU, memory and
+                                   disk read live off the machine
+    25-benchmark.png ............. the Benchmark, with its three result bars
+    26-music-box.png ............. the Music Box and its four tunes
+    27-minigames.png ............. Tic-Tac-Toe and Fifteen, side by side
     28-open-zoom-trail.png ....... a window zooming open (motion trail)
     29-restore-zoom-trail.png .... a window flying out of its taskbar button
     30-window-shading.png ........ a window shaded to its title bar
@@ -200,12 +205,22 @@ From the distribution directory (the one holding CASTALIA.EXE), run:
          INSTALL                 (installs to C:\CASTALIA)
     or   INSTALL D:\APPS\CAST    (installs to a path you choose)
 
-INSTALL.BAT creates the target directory, copies CASTALIA.EXE, a starter
-CASTALIA.INI (never overwriting one you already have), README.TXT and the
-ASSETS\ICONS bitmaps, then prints how to start Castalia and the optional
-PATH line for AUTOEXEC.BAT.  It writes only inside the target directory and
-does not edit AUTOEXEC.BAT or CONFIG.SYS.  (You can also just copy the files
-by hand - nothing requires the installer.)
+There are two installers in the folder, and DOS picks the graphical one:
+COMMAND.COM looks for .EXE before .BAT, so plain INSTALL now starts
+INSTALL.EXE, a Castalia-styled setup with an editable target path, a
+progress bar and an optional AUTOEXEC.BAT PATH line.  It was built by
+every source build for fourteen versions and shipped in none of them;
+now it travels with the bundle.
+
+Type  INSTALL.BAT  in full for the batch installer instead.  It is the
+zero-tools path - plain MS-DOS 6.22 / FreeDOS, no COPY /Y, no CHOICE -
+and it does the same job: creates the target directory, copies
+CASTALIA.EXE, a starter CASTALIA.INI (never overwriting one you already
+have), README.TXT and the ASSETS\ICONS bitmaps, then prints how to start
+Castalia and the optional PATH line for AUTOEXEC.BAT.  It writes only
+inside the target directory and does not edit AUTOEXEC.BAT or CONFIG.SYS.
+(You can also just copy the files by hand - nothing requires either
+installer.)
 
 HOW TO RUN
 ----------

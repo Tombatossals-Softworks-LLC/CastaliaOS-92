@@ -1,0 +1,76 @@
+name: Release
+
+# A tag is the only moment the project ships.  CI has already proved the
+# tree builds, boots and matches release/ (it runs on tags too); this
+# workflow packages that same bundle and puts it on the Releases page, so
+# "download Castalia" never means "clone the repository".
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)package, e.g. v0.56'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package the DOS bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write     # creating the GitHub release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up Open Watcom
+        uses: open-watcom/setup-watcom@v0
+        with:
+          version: "2.0"
+
+      - name: Build the shipping binary
+        run: |
+          export INCLUDE="$WATCOM/h"
+          wmake
+
+      # The bytes on the Releases page have to be the bytes this tag
+      # builds - not a binary someone staged by hand three commits ago.
+      - name: The tagged release/ is the binary we just built
+        run: bash ci/release.sh --strict
+
+      - name: Build the distribution archive
+        id: pack
+        run: |
+          V=$(grep -oE 'CAST_VERSION[[:space:]]+"[0-9.]+"' src/castalia.h |
+              grep -oE '[0-9]+\.[0-9]+')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+          # A DOS user unzips this onto a FAT drive and runs INSTALL, so
+          # the archive holds the bundle itself at the top level - no
+          # release/ directory to descend into first.
+          stage="castalia-$V"
+          mkdir -p "$stage"
+          cp -r release/. "$stage/"
+          zip -r -9 "castalia-$V.zip" "$stage" >/dev/null
+          unzip -l "castalia-$V.zip"
+
+      - name: Release notes from README.TXT
+        run: bash ci/relnotes.sh "${{ steps.pack.outputs.version }}" > NOTES.txt
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "Castalia 92 ${{ steps.pack.outputs.version }}" \
+            --notes-file NOTES.txt \
+            --verify-tag \
+            "castalia-${{ steps.pack.outputs.version }}.zip" \
+            || gh release upload "$TAG" \
+                 "castalia-${{ steps.pack.outputs.version }}.zip" --clobber

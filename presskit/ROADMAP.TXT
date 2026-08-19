@@ -1,25 +1,48 @@
 ======================================================================
  CASTALIA 92  -  WHERE IT IS GOING
 ======================================================================
+This is the short, public version of docs/ROADMAP.TXT.  The two are
+kept in step: if a milestone is DONE there, it is DONE here.
 
-WHERE WE ARE (v0.50, July 2026)
+WHERE WE ARE (v0.56)
     The desktop is feature-complete for daily retro use: the window
-    manager, the thirty-plus programs, the twelve games, media
+    manager, the thirty-plus programs, the thirteen games, media
     playback on three audio devices, eighteen themes, the sixteen-
-    effect screensaver, the installer and the documented INI format
-    are all shipping today.  The project moves in small, frequent
-    releases - roughly one focused improvement per version, each one
-    verified and CI-built.
+    effect screensaver, both installers and the documented INI format
+    are all shipping today.  Every milestone from v0.1 to v0.56 is
+    closed; v1.0 is the only one still open.  The project moves in
+    small, frequent releases - roughly one focused improvement per
+    version, each one verified and CI-built.
 
 THE ROAD TO 1.0
     [ ] Hardening on real iron: a torture lap across genuine 386SX,
         386DX and 486 machines and the popular mouse drivers, plus
-        the emulator matrix (DOSBox, 86Box, PCem).
+        the emulator matrix (DOSBox, 86Box, PCem).  THIS IS THE ONLY
+        THING LEFT BETWEEN CASTALIA AND 1.0.
+        Half of it is already done - the half that does not need the
+        hardware, which is running at its SPEED.  Under DOSBox at
+        cycles=1100 (about a 386SX/16, the low end of what the README
+        claims) two sweeps found a real defect and cleared four other
+        suspicions.  The defect: typing lost more than half its
+        characters, because the main loop read one key per pass and a
+        640x480 compose takes long enough for a typist to outrun the
+        frame rate.  All three input loops drain the BIOS buffer now.
+        What speed cannot answer is what still needs the machines:
+        real mouse drivers, real VGA cards, the critical-error
+        handler against a genuinely unready floppy, and the BIOS
+        variations no emulator reproduces.
+    [x] A memory gauge for the diet, so the last stability pass is
+        measured rather than guessed: CI reads the linker map and
+        fails the build if DGROUP - the single 64 KB near-data
+        segment that holds the statics, the stack and the near heap -
+        passes its watermark.  It sits at 86% of that budget today,
+        with about 7.8 KB to spare.
     [x] Frozen, documented formats: CASTALIA.INI, the .ICN icon
         format, the .ICO subset and the GIF rules are already written
         down in docs/FORMATS.TXT - your icon packs will not break.
-    [ ] A final memory diet and stability pass, so 1.0 is the version
-        you leave running on the machine in the garage.
+    [x] Run-time CPU detection, so the System Panel names the chip it
+        is actually running on (80386 / 80486 / 80586- / 80686-class).
+    [x] Polished docs and a small user guide - docs/GUIDE.TXT.
 
 AFTER 1.0 (the dream list, in no particular order)
     * Community theme and icon packs - the format is stable and the
@@ -34,6 +57,13 @@ AFTER 1.0 (the dream list, in no particular order)
     * Localised Start buttons.  UPDATE: landed in v0.51 - startlabel=
       renames the button (Start, Demarrer, Avvio...) and it sizes
       itself to fit.  The default remains "Inicio".
+
+WHAT CASTALIA WILL NOT BECOME
+    Out of scope at 1.0 and after it: multitasking, a kernel or
+    bootloader, Win16/Win32 compatibility, a TCP/IP stack, USB,
+    sound-card mixing, protected-mode drivers, long file names and
+    modern image or font formats.  Castalia stays a small, honest
+    DOS shell.
 
 WHAT WE WANT TO ACHIEVE
     Every 386 that still turns on deserves a desktop that makes its
