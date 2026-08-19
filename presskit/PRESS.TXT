@@ -59,10 +59,10 @@ HIGHLIGHTS
 
 AVAILABILITY
 Castalia 92 is available today, free, at
-https://github.com/davabe/CastaliaOS - as buildable source and as a
-ready-to-run release folder that boots on real hardware, DOSBox, 86Box
-and friends.  It is MIT licensed: redistribute it, cover-mount it,
-fork it, ship your own theme packs.
+https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92 - as
+buildable source and as a ready-to-run release folder that boots on
+real hardware, DOSBox, 86Box and friends.  It is MIT licensed:
+redistribute it, cover-mount it, fork it, ship your own theme packs.
 
 ABOUT TOMBATOSSALS SOFTWORKS
 Tombatossals Softworks is a small studio that builds new software for

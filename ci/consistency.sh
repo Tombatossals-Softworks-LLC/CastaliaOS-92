@@ -319,5 +319,36 @@ no=$(grep -oE '[a-z0-9_]+\.obj' Makefile | grep -v '^insmain\.obj$' | sort -u | 
 echo "    $nc source files, $no distinct objects"
 [ "$nc" = "$no" ] || flag "source count ($nc) != Makefile object count ($no)"
 
+echo "==> every numbered screenshot is indexed in README.TXT"
+# The index in README.TXT is the only catalogue of what the shots show,
+# and it is hand-written.  It had silently skipped from 23 to 28: the
+# System Inspector, the Benchmark, the Music Box and the minigames were
+# captured, committed, and then described nowhere.
+on_disk=$(ls docs/screenshots | grep -E '^[0-9]{2}-.*\.png$' | sed 's/\.png$//' | sort)
+indexed=$(grep -oE '^    [0-9]{2}-[a-z0-9-]+\.png' README.TXT |
+          sed 's/^ *//; s/\.png$//' | sort -u)
+unindexed=$(comm -23 <(echo "$on_disk") <(echo "$indexed"))
+phantom=$(comm -13 <(echo "$on_disk") <(echo "$indexed"))
+if [ -n "$unindexed" ]; then
+  flag "screenshots on disk that README.TXT never mentions:"
+  echo "$unindexed" | sed 's/^/      /'
+fi
+if [ -n "$phantom" ]; then
+  flag "screenshots README.TXT indexes that are not in docs/screenshots:"
+  echo "$phantom" | sed 's/^/      /'
+fi
+[ -n "$unindexed$phantom" ] || \
+  echo "    $(echo "$on_disk" | wc -l | tr -d ' ') screenshots, all indexed"
+
+echo "==> README.md carries the current version"
+# README.md is the shop window - the page every visitor reads first, and
+# the copy furthest from the code.  Its version badge is checked here for
+# the same reason release/README.TXT is: nothing else would notice.
+if [ ! -f README.md ]; then
+  flag "README.md is missing"
+elif [ -n "$V" ] && ! grep -q "$V" README.md; then
+  flag "README.md does not mention version $V"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "consistency: OK"; else echo "consistency: FAILED"; fi
 exit "$fail"

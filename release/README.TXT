@@ -59,6 +59,11 @@ screenshots are in DOCS/SCREENSHOTS/:
     21-program-drawer-13h.png .... the Program Drawer (windowed launcher)
     22-program-drawer-12h.png .... the Program Drawer at 640x480
     23-theme-workbench.png ....... the "workbench" theme (Amiga homage)
+    24-system-inspector.png ...... the System Inspector: CPU, memory and
+                                   disk read live off the machine
+    25-benchmark.png ............. the Benchmark, with its three result bars
+    26-music-box.png ............. the Music Box and its four tunes
+    27-minigames.png ............. Tic-Tac-Toe and Fifteen, side by side
     28-open-zoom-trail.png ....... a window zooming open (motion trail)
     29-restore-zoom-trail.png .... a window flying out of its taskbar button
     30-window-shading.png ........ a window shaded to its title bar

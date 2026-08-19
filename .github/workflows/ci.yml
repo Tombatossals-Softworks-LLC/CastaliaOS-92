@@ -13,10 +13,13 @@ on:
   pull_request:
   workflow_dispatch:
 
-# A newer push to the same ref supersedes an in-flight run.
+# A newer push to the same PR supersedes an in-flight run.  Mainline and
+# tag runs are NEVER cancelled: the mainline run ends by committing the
+# fresh binary into release/, and half-performing that is worse than
+# waiting for it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -29,6 +32,7 @@ jobs:
   build:
     name: Build (Open Watcom, DOS 16-bit)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -86,6 +90,7 @@ jobs:
   lint:
     name: Lint (C89 house style)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Source hygiene
@@ -96,12 +101,30 @@ jobs:
       - name: Near/far pointer trap
         run: bash ci/nearfar.sh
 
+      # The checks above are themselves shell and Python, and a checker
+      # that will not run is a checker that passes.  A stray backslash in
+      # ci/nearfar.py rode in the tree as a SyntaxWarning that nothing was
+      # reading - and it is a hard SyntaxError in a near-future Python.
+      - name: The tooling itself parses
+        run: |
+          for f in ci/*.sh tools/*.sh; do bash -n "$f"; done
+          python3 -W error::SyntaxWarning -m compileall -q ci tools tests
+
+      # Definite errors only (unclosed quotes, bad redirections).  Style
+      # opinions are left to the reader; breakage is not.
+      - name: ShellCheck (errors only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck --severity=error ci/*.sh tools/*.sh
+
   # --------------------------------------------------------------------
   # Keep the three hand-maintained build definitions and the docs in sync.
   # --------------------------------------------------------------------
   consistency:
     name: Consistency (build lists + version)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Repository consistency
@@ -126,6 +149,7 @@ jobs:
   hosttests:
     name: Parser tests (ASan + UBSan)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Run the host parser tests
@@ -139,6 +163,7 @@ jobs:
     name: Smoke boot (DOSBox)
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -167,8 +192,10 @@ jobs:
   # Mainline only: once the freshly built binary has passed the build,
   # smoke, lint and consistency gates, commit it back into release/ so the
   # ready-to-run bundle the repo ships is never stale.  release/README.TXT
-  # is refreshed from the root README in the same commit.  The commit
-  # message carries [skip ci] so it does not re-trigger this workflow.
+  # and the assets are restaged in the same commit by ci/stage-release.sh -
+  # the same script `wmake release` runs, so the two paths cannot drift.
+  # The commit message carries [skip ci] so it does not re-trigger this
+  # workflow.
   # --------------------------------------------------------------------
   publish:
     name: Publish binary to release/
@@ -177,28 +204,22 @@ jobs:
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - name: Download the validated build
         uses: actions/download-artifact@v4
         with:
           name: castalia-dos-build
 
-      - name: Commit the fresh binary (and sync the release README)
+      - name: Commit the fresh bundle
         run: |
-          cp CASTALIA.EXE release/CASTALIA.EXE
-          cp README.TXT   release/README.TXT
-          # The assets were never restaged here, so a new or edited icon
-          # reached users only if someone remembered to copy it by hand.
-          rm -rf release/ASSETS
-          mkdir -p release/ASSETS
-          cp -r assets/icons  release/ASSETS/ICONS
-          cp -r assets/media  release/ASSETS/MEDIA
-          cp -r assets/themes release/ASSETS/THEMES
-          bash ci/release.sh --strict
+          bash ci/stage-release.sh --strict
           if git diff --quiet -- release/; then
             echo "release/ already up to date - nothing to commit"
             exit 0
@@ -207,4 +228,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add release/
           git commit -m "ci: refresh release/ from ${GITHUB_SHA::7} [skip ci]"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          # Another merge may have landed while this run was building.
+          # Rebase onto it rather than failing the push; the staging is a
+          # pure function of the tree, so it replays cleanly.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

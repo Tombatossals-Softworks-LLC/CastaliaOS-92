@@ -39,6 +39,21 @@ elif ! cmp -s README.TXT release/README.TXT; then
   diff README.TXT release/README.TXT | head -20
 fi
 
+# The other three files the bundle carries from the root: the shipped
+# configuration (whose comments are also the INI manual), the installer
+# and the shell wrapper.  Each is committed twice and nothing compared
+# them, so a key documented in the root copy could be missing from the
+# copy users actually get.  They are identical files; keep them so.
+echo "==> release/ carries the current INI, installer and wrapper"
+for f in CASTALIA.INI INSTALL.BAT CASTSHEL.BAT; do
+  if [ ! -f "release/$f" ]; then
+    flag "release/$f is missing"
+  elif ! cmp -s "$f" "release/$f"; then
+    flag "release/$f has drifted from $f (run: wmake release)"
+    diff "$f" "release/$f" | head -10
+  fi
+done
+
 # assets/<lower> is staged as release/ASSETS/<UPPER>.  The filenames are
 # already 8.3 uppercase in the source tree; only the directory names are
 # folded, so the mirror is a plain per-file byte comparison.
@@ -66,6 +81,21 @@ for pair in icons:ICONS media:MEDIA themes:THEMES; do
   done
 done
 
+# `strings` lives in binutils, which a minimal container need not have -
+# and without this the check did not report "I cannot look", it reported
+# "the binary is the wrong version", which is a different bug entirely.
+# grep -a over the image answers the same question with no toolchain.
+version_in_binary() {
+  if command -v strings >/dev/null 2>&1; then
+    strings -a "$1" | grep -qx "$2"
+  else
+    # tr splits the image on non-printables, which is what `strings` does;
+    # -qx then demands the whole run be the version, so 0.5 cannot match
+    # inside 0.56 and a stale binary cannot pass by coincidence.
+    LC_ALL=C tr -c '[:print:]' '\n' < "$1" | grep -qx "$2"
+  fi
+}
+
 # A release binary from an older version is the drift that actually hurts
 # users: they run the EXE, not the sources.  The version string is baked
 # into the About box, so grepping the image for it is enough to catch a
@@ -77,7 +107,7 @@ if [ -z "$V" ]; then
   flag "could not read CAST_VERSION from src/castalia.h"
 elif [ ! -f release/CASTALIA.EXE ]; then
   flag "release/CASTALIA.EXE is missing"
-elif ! strings -a release/CASTALIA.EXE | grep -qx "$V"; then
+elif ! version_in_binary release/CASTALIA.EXE "$V"; then
   flag "release/CASTALIA.EXE does not carry version $V (run: wmake release)"
 else
   echo "    version $V"
