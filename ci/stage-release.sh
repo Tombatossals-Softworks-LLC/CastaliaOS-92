@@ -21,9 +21,12 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-[ -f CASTALIA.EXE ] || { echo "stage-release: CASTALIA.EXE not built"; exit 1; }
+for exe in CASTALIA.EXE INSTALL.EXE; do
+  [ -f "$exe" ] || { echo "stage-release: $exe not built"; exit 1; }
+done
 
 cp CASTALIA.EXE  release/CASTALIA.EXE
+cp INSTALL.EXE   release/INSTALL.EXE
 cp README.TXT    release/README.TXT
 cp CASTALIA.INI  release/CASTALIA.INI
 cp INSTALL.BAT   release/INSTALL.BAT

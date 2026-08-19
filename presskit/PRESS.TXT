@@ -12,7 +12,7 @@ turns a beige-box PC from 1992 - or any emulator, retro handheld or
 industrial relic that still speaks DOS - into a complete windowed
 desktop: overlapping, draggable, resizable windows; a taskbar with a
 Start button; a file manager; an editor, a paint program and thirty
-other built-in tools; twelve games; a WAV/MIDI media player with a
+other built-in tools; thirteen games; a WAV/MIDI media player with a
 live spectrum analyzer; eighteen colour themes; and an idle
 screensaver that plays sixteen genuine demoscene effects, from copper
 bars to a textured raycast maze.

@@ -13,9 +13,10 @@
 #   * release/README.TXT is byte-identical to README.TXT
 #   * release/ASSETS mirrors assets/ (same files, same bytes, FAT-cased)
 #   * release/CASTALIA.EXE carries the current CAST_VERSION string
+#   * release/INSTALL.EXE is present and is a DOS executable
 #
-# --strict additionally requires release/CASTALIA.EXE to be byte-identical
-# to a freshly built CASTALIA.EXE.  The Watcom build is reproducible, so
+# --strict additionally requires both release/ executables to be
+# byte-identical to a freshly built pair.  The Watcom build is reproducible, so
 # that comparison is meaningful - but it would also mean every source
 # commit had to restage the binary, so it is reserved for tag builds,
 # where the shipped bytes genuinely have to be the built bytes.
@@ -44,7 +45,7 @@ fi
 # and the shell wrapper.  Each is committed twice and nothing compared
 # them, so a key documented in the root copy could be missing from the
 # copy users actually get.  They are identical files; keep them so.
-echo "==> release/ carries the current INI, installer and wrapper"
+echo "==> release/ carries the current INI, batch installer and wrapper"
 for f in CASTALIA.INI INSTALL.BAT CASTSHEL.BAT; do
   if [ ! -f "release/$f" ]; then
     flag "release/$f is missing"
@@ -113,13 +114,30 @@ else
   echo "    version $V"
 fi
 
+# The graphical installer is the second thing `wmake` builds, and until
+# now it was the only build output nothing wanted: .gitignore hid it,
+# staging skipped it, so the INSTALL.EXE that README.TXT and the press
+# kit both describe reached no user.  It carries no version string of its
+# own (it prints "Castalia 92 Setup", not a number), so what is checked
+# here is that it is there and that it is a DOS executable.
+echo "==> release/INSTALL.EXE is present and is a DOS executable"
+if [ ! -f release/INSTALL.EXE ]; then
+  flag "release/INSTALL.EXE is missing (run: wmake release)"
+elif [ "$(head -c2 release/INSTALL.EXE)" != "MZ" ]; then
+  flag "release/INSTALL.EXE is not an MZ (DOS) executable"
+else
+  echo "    $(wc -c < release/INSTALL.EXE | tr -d ' ') bytes"
+fi
+
 if [ "$strict" = "1" ]; then
-  echo "==> release/CASTALIA.EXE is byte-identical to the build (--strict)"
-  if [ ! -f CASTALIA.EXE ]; then
-    flag "CASTALIA.EXE has not been built; --strict needs it"
-  elif ! cmp -s CASTALIA.EXE release/CASTALIA.EXE; then
-    flag "release/CASTALIA.EXE is not the binary this tree builds"
-  fi
+  echo "==> release/ executables are byte-identical to the build (--strict)"
+  for exe in CASTALIA.EXE INSTALL.EXE; do
+    if [ ! -f "$exe" ]; then
+      flag "$exe has not been built; --strict needs it"
+    elif ! cmp -s "$exe" "release/$exe"; then
+      flag "release/$exe is not the binary this tree builds"
+    fi
+  done
 fi
 
 if [ "$fail" != "0" ]; then

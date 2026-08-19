@@ -48,18 +48,29 @@ jobs:
           export INCLUDE="$WATCOM/h"
           wmake
 
-      - name: Verify the DOS executable
+      # Both executables wmake produces.  INSTALL.EXE was checked by
+      # nothing at all until now: it was built on every run and then
+      # discarded, so the graphical installer README.TXT and the press
+      # kit describe could have been broken for months in silence.
+      - name: Verify the DOS executables
         run: |
-          test -f CASTALIA.EXE || { echo "CASTALIA.EXE was not produced"; exit 1; }
-          size=$(stat -c%s CASTALIA.EXE)
-          echo "CASTALIA.EXE = ${size} bytes"
-          # DOS 'MZ' executable magic.
-          magic=$(head -c2 CASTALIA.EXE)
-          [ "$magic" = "MZ" ] || { echo "not an MZ (DOS) executable"; exit 1; }
-          # A plausible size window catches a truncated or bloated link.
-          if [ "$size" -lt 100000 ] || [ "$size" -gt 500000 ]; then
-            echo "executable size ${size} is outside the expected range"; exit 1
-          fi
+          check() {
+            exe="$1"; lo="$2"; hi="$3"
+            test -f "$exe" || { echo "$exe was not produced"; exit 1; }
+            size=$(stat -c%s "$exe")
+            echo "$exe = ${size} bytes"
+            # DOS 'MZ' executable magic.
+            magic=$(head -c2 "$exe")
+            [ "$magic" = "MZ" ] || { echo "$exe is not an MZ (DOS) executable"; exit 1; }
+            # A plausible size window catches a truncated or bloated link.
+            if [ "$size" -lt "$lo" ] || [ "$size" -gt "$hi" ]; then
+              echo "$exe size ${size} is outside the expected range"; exit 1
+            fi
+          }
+          check CASTALIA.EXE 100000 500000
+          # The installer links four of the shell's modules and little
+          # else, so its window is an order of magnitude lower down.
+          check INSTALL.EXE   10000 200000
 
       # The 64 KB near-data segment is the scarcest resource in the whole
       # program; watch it like a fuel gauge (see ci/memory.sh).
@@ -80,6 +91,7 @@ jobs:
           name: castalia-dos-build
           path: |
             CASTALIA.EXE
+            INSTALL.EXE
             castalia.map
           if-no-files-found: error
 

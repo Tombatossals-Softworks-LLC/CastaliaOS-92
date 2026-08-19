@@ -67,13 +67,17 @@ at the top of [README.TXT](README.TXT).
    purpose, and CI keeps it in step with the source on every merge.
 2. Copy it onto the DOS machine and run the installer (or just copy the files
    into one directory; the installer is a convenience, and it never touches
-   `AUTOEXEC.BAT`):
+   `AUTOEXEC.BAT` unless you ask it to):
 
    ```
-   INSTALL            REM installs into C:\CASTALIA
+   INSTALL            REM the graphical setup, into C:\CASTALIA
    CD \CASTALIA
    CASTALIA
    ```
+
+   `INSTALL` starts `INSTALL.EXE`, a Castalia-styled setup with an editable
+   target path and a progress bar — DOS looks for `.EXE` before `.BAT`. Type
+   `INSTALL.BAT` in full for the zero-tools batch installer instead.
 
 3. Load a mouse driver first (`CTMOUSE`, `MOUSE.COM`) if you want the pointer.
 
@@ -151,7 +155,7 @@ cross-compiles DOS binaries from Windows and Linux just as happily as it builds
 natively under DOS.
 
 ```sh
-wmake              # -> CASTALIA.EXE  (or run BUILD.BAT for a one-shot build)
+wmake              # -> CASTALIA.EXE + INSTALL.EXE  (BUILD.BAT does it in one shot)
 wmake clean
 wmake release      # restage the ready-to-run bundle in release/
 ```

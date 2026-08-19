@@ -340,6 +340,19 @@ fi
 [ -n "$unindexed$phantom" ] || \
   echo "    $(echo "$on_disk" | wc -l | tr -d ' ') screenshots, all indexed"
 
+echo "==> the press kit quotes the current version"
+# The press kit is the copy nobody edits during a release, so it is the
+# copy that goes stale: its fact sheet and its roadmap both sat on 0.50
+# for six versions, telling readers about twelve games when there were
+# thirteen, and pointing at a repository that is not this one.
+for f in presskit/FACTSHEET.TXT presskit/ROADMAP.TXT; do
+  if [ ! -f "$f" ]; then
+    flag "$f is missing"
+  elif [ -n "$V" ] && ! grep -q "$V" "$f"; then
+    flag "$f does not mention version $V"
+  fi
+done
+
 echo "==> README.md carries the current version"
 # README.md is the shop window - the page every visitor reads first, and
 # the copy furthest from the code.  Its version badge is checked here for

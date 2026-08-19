@@ -4,8 +4,8 @@
  intentions, not promises, and may be reordered.
 ======================================================================
 
-v0.1  MVP  (THIS RELEASE)  -- DONE
-----------------------------------
+v0.1  MVP  -- DONE
+------------------
   [x] Boots from DOS as CASTALIA.EXE; restores text mode cleanly on exit
   [x] VGA Mode 13h (320x200x256) with a programmable themed palette
   [x] Double-buffered, flicker-free drawing (DOS-allocated back buffer)
@@ -24,8 +24,8 @@ v0.1  MVP  (THIS RELEASE)  -- DONE
   [x] ESC and a menu item to exit to DOS
   [x] README / BUILD / ARCHITECTURE / ROADMAP, Makefile + BUILD.BAT
 
-v0.2  File manager improvements  -- IN PROGRESS
------------------------------------------------
+v0.2  File manager improvements  -- DONE
+----------------------------------------
   [x] Modal dialog system (message / confirm / text input) - dialog.c
   [x] Disk Cabinet toolbar: Up / New / Ren / Copy / Move / Del
   [x] File operations: make directory, delete, rename, copy, move
@@ -124,8 +124,8 @@ v0.6  Boot splash and the 1 MB memory gate  -- DONE
       a true blend, the classic late-80s look.
   [ ] Program Drawer / game launcher (moved to v0.7)
 
-v0.7  Program drawer / game launcher  -- IN PROGRESS
-----------------------------------------------------
+v0.7  Program drawer / game launcher  -- DONE
+---------------------------------------------
   [x] Program Drawer (drawer.c): a window showing the configured launch
       entries (the [shortcut] list) as a grid of labelled icons, each with
       its own .ICN bitmap or the procedural icon for its command, and a
@@ -153,8 +153,8 @@ v0.7  Program drawer / game launcher  -- IN PROGRESS
       name and launched from that directory, capped to the cells the
       current video mode can show
 
-v0.8  Installer  -- IN PROGRESS
--------------------------------
+v0.8  Installer  -- DONE
+------------------------
   [x] INSTALL.BAT: copies CASTALIA.EXE, CASTALIA.INI, README and the
       ASSETS\ICONS bitmaps into a target directory (C:\CASTALIA by default,
       or a path passed as the first argument), creating the tree as needed.
@@ -167,7 +167,12 @@ v0.8  Installer  -- IN PROGRESS
       font, ui and keyboard objects) - an editable target path, an
       AUTOEXEC.BAT PATH option, a live copy progress bar and a themed
       panel with the castle crest.  INSTALL.BAT remains the no-tools
-      fallback for running straight off the distribution disk
+      fallback for running straight off the distribution disk.
+      Shipped in the bundle from 0.56: for fourteen versions it was
+      built by every wmake, ignored by .gitignore, skipped by the
+      staging and therefore delivered to nobody, so the installer the
+      manual and the press kit both described existed only for people
+      who compiled the tree.  CI verifies it and stages it now
   [x] Offer to append the PATH line to AUTOEXEC.BAT: the explicit
       "INSTALL <dir> PATH" argument appends it (duplicate-guarded via
       FIND); without the argument nothing outside the target is touched
@@ -656,8 +661,8 @@ v0.13 .. v0.52  The long march (highlights)  -- DONE
   literal past the safe bound without a (long).  It caught a real
   reintroduction within the hour.
 
-v0.56  What the shell knew and did not say
-------------------------------------------
+v0.56  What the shell knew and did not say  -- DONE (CURRENT RELEASE)
+---------------------------------------------------------------------
   [x] Shut Down asked about a typed Scrap Box and a drawn Sketch Pad and
       nothing else, so a theme picked in Settings - which applies LIVE,
       and is therefore the one unsaved state that looks saved - died in
@@ -770,8 +775,8 @@ RESOLVED IN 0.56 - THE MUSIC BOX IS REACHABLE AGAIN
   other metric in the shell, rather than a fixed 40 pixels that was half
   the window in one video mode and a strip in the other.
 
-v1.0  Stable release
---------------------
+v1.0  Stable release  -- OPEN
+-----------------------------
   [x] A memory gauge for the diet: CI now reads the linker map and fails
       the build when DGROUP (the single 64 KB near-data segment: statics,
       stack and the near heap stdio lives in) passes a 56 KB watermark -
