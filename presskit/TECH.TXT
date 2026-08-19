@@ -1,0 +1,89 @@
+======================================================================
+ CASTALIA 92  -  HOW IT IS MADE
+ (the technical story, for the readers who want the good stuff)
+======================================================================
+
+THE CONSTRAINT IS THE POINT
+Castalia 92 targets a real-mode 386 with VGA and 4 MB of RAM, and it
+is built almost entirely with the tools and rules of that era.  No
+DOS extender, no protected mode, no floating point, no external
+libraries.  If a 1992 machine cannot run it, it does not ship.
+
+THE TOOLCHAIN
+    * Open Watcom C (wcc): 16-bit real-mode code generation, medium
+      memory model (far code, near data), optimized for size, with
+      the compiler's maximum warning level treated as gospel.
+    * C89, strictly: declarations at the top of blocks, /* comments */
+      only, 7-bit ASCII sources.  A lint script enforces the house
+      style in CI; a consistency script keeps the Makefile, BUILD.BAT
+      and linker script in lock-step and the version string honest.
+    * A handful of Watcom inline-assembly pragmas where DOS demands
+      it (BIOS/interrupt glue); everything else is plain C - about
+      22,500 lines across 59 files.
+
+THE GRAPHICS STACK
+    * VGA Mode 13h (320x200, 256 colours) is the flagship: a full
+      off-screen back buffer composited in system memory, presented
+      with partial blits - the compositor tracks damage so a click
+      repaints a window, not a screen.  Title bars sweep through a
+      reserved 32-entry DAC gradient ramp, the iconic navy-to-sky
+      bloom.  Mode 12h (640x480, 16 colours) is fully supported with
+      planar drawing and the ROM 8x16 font.
+    * The desktop is scene-cached: uncovering a window restores
+      pixels from cache instead of recomputing wallpaper.
+    * Cross-fades (theme changes, screensaver entry, shutdown) are
+      DAC ramps - free at 320x200, and exactly how the era did it.
+
+THE MATHS
+    Everything animated - the sixteen screensaver effects, the
+    spectrum analyzer, the window open animation - is fixed-point
+    integer arithmetic, mostly Q8, driven by one shared 256-entry
+    parabolic sine table accurate to a couple of ULPs of char.  The
+    voxel terrain is ray-marched front-to-back with a per-column
+    y-buffer; the corridor is a Wolfenstein-style DDA raycaster with
+    a 16x16 bit-packed map (the whole level costs 32 bytes) and a
+    16x16 running-bond brick texture; the kaleidoscope folds the
+    plasma field into eight-fold symmetry and then animates for free
+    by rotating the palette - per frame it costs one DAC write.
+
+THE SOUND STACK
+    * PC speaker: always present, so always supported - square-wave
+      sound effects and even digitized WAV playback by pulse-width
+      modulation, paced by the 8253 timer so pitch is CPU-independent.
+    * Sound Blaster: single-cycle DMA for honest 8-bit digital audio.
+    * Printer-port DACs: the Covox Speech Thing (a resistor ladder on
+      the LPT data lines, paced sample by sample off the PIT) and the
+      Disney Sound Source (a 16-byte FIFO drained at ~7 kHz, fed with
+      the classic status/control handshake).  Declared in the INI,
+      never probed - a printer would print the bytes.
+    * AdLib/OPL2: polyphonic MIDI with a full General-MIDI voice bank
+      - program changes, percussion channel and all - parsed from
+      Standard MIDI Files into a chord stream small enough to play
+      from a 40 KB far buffer.
+
+THE MEMORY BUDGET
+    Real mode gives you one 64 KB near-data segment (DGROUP) and it
+    fills fast.  Large tables - sine LUTs, textures, playlists, the
+    MIDI buffer - live in far memory by design.  The resident shell
+    stays around 120 KB so DOS programs launch comfortably, and a
+    wrapper mode unloads Castalia entirely for memory-hungry games,
+    restoring the desktop afterwards.
+
+HOW A 2026 TEAM SHIPS 1992 SOFTWARE
+    Every visual change is verified before it ever meets a real 386:
+    the drawing code is mirrored in small host-side C harnesses that
+    render frames to image files, which are inspected and compared -
+    a screenshot pipeline for a machine that cannot take screenshots.
+    GitHub Actions then builds the real 16-bit binaries with Open
+    Watcom on every push, runs the style lint and the consistency
+    checks, and packages the release folder.  The screenshots in this
+    press kit come from that same pipeline, rendered at the native
+    320x200 by the shell's own drawing routines.
+
+WHY BOTHER
+    Because constraints are a forcing function for craft.  Every
+    feature in Castalia 92 - the compositor, the FM synth, the
+    raycaster - had to be rethought until it fit in 16-bit integers
+    and kilobytes of RAM, and the result is software with the snap
+    of the machines it loves.  Also: the startup chime is delightful,
+    and somebody had to write it.

@@ -1,0 +1,71 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables (DOS toolchains emit upper-case names; Linux is case-sensitive)
+*.exe
+*.EXE
+*.OBJ
+*.MAP
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# ...but the shipped, ready-to-run build under release/ IS tracked on
+# purpose, so the repo carries a compiled binary you can copy to a 386.
+!release/CASTALIA.EXE
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# CI smoke-test screenshot (produced by ci/smoke.sh, uploaded as an artifact)
+ci-smoke.png
+CASTALIA.HI
+
+# host test binaries and scratch files
+tests/hosttests
+tests/cast_test_tmp.bin
+ci/__pycache__/
+
+# tools/shot.sh output (screenshots and scratch DOS disks)
+shots/

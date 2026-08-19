@@ -1,0 +1,210 @@
+name: CI
+
+# Build the real DOS executable with Open Watcom, enforce the C89 house
+# style and the build-list consistency the manual makefiles depend on, and
+# smoke-boot the result under DOSBox.
+# Pull requests are validated on every sync; direct pushes to the mainline
+# and release tags are validated too.  Feature branches get their coverage
+# through their PR, so this avoids a duplicate run per push.
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------
+  # Cross-compile CASTALIA.EXE exactly the way the Makefile does, with
+  # warnings-as-errors (-wx -we), then sanity-check and publish the binary.
+  # --------------------------------------------------------------------
+  build:
+    name: Build (Open Watcom, DOS 16-bit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Open Watcom
+        uses: open-watcom/setup-watcom@v0
+        with:
+          version: "2.0"
+
+      - name: Build with wmake
+        run: |
+          # setup-watcom points INCLUDE at the Linux-host headers (lh); a
+          # 16-bit DOS cross-build needs the DOS target headers in $WATCOM/h.
+          export INCLUDE="$WATCOM/h"
+          wmake
+
+      - name: Verify the DOS executable
+        run: |
+          test -f CASTALIA.EXE || { echo "CASTALIA.EXE was not produced"; exit 1; }
+          size=$(stat -c%s CASTALIA.EXE)
+          echo "CASTALIA.EXE = ${size} bytes"
+          # DOS 'MZ' executable magic.
+          magic=$(head -c2 CASTALIA.EXE)
+          [ "$magic" = "MZ" ] || { echo "not an MZ (DOS) executable"; exit 1; }
+          # A plausible size window catches a truncated or bloated link.
+          if [ "$size" -lt 100000 ] || [ "$size" -gt 500000 ]; then
+            echo "executable size ${size} is outside the expected range"; exit 1
+          fi
+
+      # The 64 KB near-data segment is the scarcest resource in the whole
+      # program; watch it like a fuel gauge (see ci/memory.sh).
+      - name: DGROUP watermark (near-data budget)
+        run: bash ci/memory.sh castalia.map
+
+      # On a tag the bundle in release/ IS the thing being shipped, so its
+      # binary has to be the binary this tree builds - not merely one that
+      # carries the same version string.  The Watcom build is byte-for-byte
+      # reproducible from clean, which is what makes this comparison sound.
+      - name: Release binary matches the build (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: bash ci/release.sh --strict
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: castalia-dos-build
+          path: |
+            CASTALIA.EXE
+            castalia.map
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------
+  # C89 house style: no C++ line comments, spaces not tabs, LF, ASCII,
+  # trailing newline.  Pure shell, no toolchain.
+  # --------------------------------------------------------------------
+  lint:
+    name: Lint (C89 house style)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source hygiene
+        run: bash ci/lint.sh
+
+      # The medium-model near/far trap: Watcom does not warn, and it has
+      # cost this project two silent-corruption bugs.
+      - name: Near/far pointer trap
+        run: bash ci/nearfar.sh
+
+  # --------------------------------------------------------------------
+  # Keep the three hand-maintained build definitions and the docs in sync.
+  # --------------------------------------------------------------------
+  consistency:
+    name: Consistency (build lists + version)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repository consistency
+        run: bash ci/consistency.sh
+
+      # release/ is a committed copy of the shippable bundle.  Copies
+      # drift: its README spent three versions telling people Alt+Tab
+      # cycles windows, long after that moved to Shift+Tab.  Nothing was
+      # looking.  Byte-parity of the binary is only demanded of tag
+      # builds (see the build job) - here it is the text and the assets.
+      - name: Release staging is current
+        run: bash ci/release.sh
+
+  # --------------------------------------------------------------------
+  # The shell itself is 16-bit DOS and cannot be sanitized, but its three
+  # file-format parsers are plain C fed fully hostile input - a GIF or
+  # .ICO named in CASTALIA.INI or picked in a Load box, a hand-written
+  # INI - and that is where every memory-safety bug found in this project
+  # has been.  Build those three modules unmodified against a host shim
+  # and run a corpus of crafted files under ASan + UBSan.
+  # --------------------------------------------------------------------
+  hosttests:
+    name: Parser tests (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the host parser tests
+        run: make -C tests
+
+  # --------------------------------------------------------------------
+  # Boot the freshly built binary under DOSBox and prove it reaches its
+  # graphical desktop (not a crash or a DOS prompt).
+  # --------------------------------------------------------------------
+  smoke:
+    name: Smoke boot (DOSBox)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the build
+        uses: actions/download-artifact@v4
+        with:
+          name: castalia-dos-build
+
+      - name: Install DOSBox, Xvfb and ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dosbox xvfb imagemagick
+
+      - name: Boot and check the desktop renders
+        run: bash ci/smoke.sh CASTALIA.EXE
+
+      - name: Upload the boot screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshot
+          path: ci-smoke.png
+          if-no-files-found: ignore
+
+  # --------------------------------------------------------------------
+  # Mainline only: once the freshly built binary has passed the build,
+  # smoke, lint and consistency gates, commit it back into release/ so the
+  # ready-to-run bundle the repo ships is never stale.  release/README.TXT
+  # is refreshed from the root README in the same commit.  The commit
+  # message carries [skip ci] so it does not re-trigger this workflow.
+  # --------------------------------------------------------------------
+  publish:
+    name: Publish binary to release/
+    needs: [build, smoke, lint, consistency, hosttests]
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the validated build
+        uses: actions/download-artifact@v4
+        with:
+          name: castalia-dos-build
+
+      - name: Commit the fresh binary (and sync the release README)
+        run: |
+          cp CASTALIA.EXE release/CASTALIA.EXE
+          cp README.TXT   release/README.TXT
+          # The assets were never restaged here, so a new or edited icon
+          # reached users only if someone remembered to copy it by hand.
+          rm -rf release/ASSETS
+          mkdir -p release/ASSETS
+          cp -r assets/icons  release/ASSETS/ICONS
+          cp -r assets/media  release/ASSETS/MEDIA
+          cp -r assets/themes release/ASSETS/THEMES
+          bash ci/release.sh --strict
+          if git diff --quiet -- release/; then
+            echo "release/ already up to date - nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release/
+          git commit -m "ci: refresh release/ from ${GITHUB_SHA::7} [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}

@@ -1,0 +1,194 @@
+======================================================================
+ CASTALIA 92 - GUIDE.TXT
+ A short user guide.  Five minutes from C:\> to power user.
+======================================================================
+
+GETTING STARTED
+---------------
+Run CASTALIA from its directory (or install with INSTALL.BAT first).
+The desktop appears after a short splash: four icons on the left, a
+taskbar along the bottom with the "Inicio" Start button, the running
+windows, a speaker and the clock.
+
+  Start button   opens the Dominus menu (programs, Find File, Run...,
+                 groups, About, Exit).
+  Desktop icons  double-click (or arrows + ENTER) to open.
+  ESC            from the bare desktop: exit to DOS.
+  Shift+Tab      cycles the open windows.  (Alt+Tab works too where the
+                 BIOS reports it, but it often never arrives under DOS -
+                 Shift+Tab is the one to learn.)
+
+START > DOCUMENTS
+-----------------
+Leads with the last six files you opened - from the Disk Cabinet, from
+Find File, or from this menu itself - so the file you want next is
+usually one click away.  "Clear the list" at the foot forgets them.
+The list survives a restart (RECENT.TXT, beside CASTALIA.EXE).
+
+WINDOWS
+-------
+Drag the title bar to move; drag the bottom-right corner to resize.
+Title-bar boxes: [_] minimize to the taskbar, [#] maximize/restore,
+[X] close.  Double-click the title bar to maximize; click the little
+castle crest to roll the window up (shade), double-click it to close.
+Each window remembers where you left it for the rest of the session.
+
+THE DISK CABINET (My Computer)
+------------------------------
+Opens on the drive icons; double-click a drive to browse it.
+Toolbar: Up  New  Ren  Copy  Move  Del  and the SORT button, which
+cycles the listing order Name / Ext / Size / Date (F3 does the same;
+directories always stay alphabetical at the top).
+Keys: arrows/PgUp/PgDn/Home/End move, ENTER opens, Backspace goes up,
+Del deletes, F7 new folder, F2 rename, F5 copy, F6 move, F3 sorts.
+TYPE A LETTER to jump to the next entry starting with it, wrapping -
+on a FAT directory of any size that is the difference between finding
+a file and scrolling for it.
+SPACE TAGS the entry and steps down, so tagging a run is Space Space
+Space; + tags every file, - clears them all and * inverts, the keys the
+DOS file managers of the era used.  Folders are never tagged.  Tagged
+names are drawn in red and the count sits in the path row; Del then
+removes the whole set after ONE question instead of one
+per file.  Tags are cleared by anything that reloads the listing - a
+delete, a sort, or changing folder - because the table is refilled by
+index and index 3 is a different file afterwards.  With nothing
+tagged, Del still removes just the highlighted entry.
+COPY and MOVE honour the tags too: with a set tagged they ask for a
+DESTINATION FOLDER rather than a filename - the files keep their own
+names - and folders in the set are skipped, since copying a directory
+tree is not something this shell does.  If anything of the same name is
+already in the destination you are asked ONCE, for the whole set, and
+answering No cancels the operation rather than half-doing it.  The
+scroll bar pages when you click its track and the THUMB CAN BE
+DRAGGED.  Executables launch
+and return to the desktop when they exit; documents open in their
+applet (text in the Scrap Box, .ICN in the Sketch Pad, audio in the
+Gramophone, FLI/FLC in the Cinema, anything else in Hex Peek) - the
+table is yours to change in the INI [assoc] section.
+
+THE TOOLBOX
+-----------
+My Computer, Scrap Box (text editor), Cardfile, Calc, Clock, Calendar,
+Sketch Pad (paints .ICN icons), Character Map, Colors, Fractal,
+Stopwatch, Eyes, Settings, Oracle, Agenda, FIND FILE, Hex Peek,
+TYPING TUTOR, Gramophone, MUSIC BOX, PICTURE SHOW, Cinema.  (When a
+group holds more rows than the screen, the window scrolls: arrow
+buttons on its right edge, PgUp/PgDn, or just walk the selection.)
+
+  Sketch Pad    paints 32x32 .ICN icons.  Arrows move, Space draws,
+                Tab cycles Pen/Fill/Line, [ and ] step the colour and
+                0-9 pick one directly, X erases.  F7 new, F3 load,
+                F2 save - the same three keys the Scrap Box uses.
+
+  Character Map the printable ASCII set in a grid, with the code in
+                decimal and hex under it.  Click a cell, or TYPE THE
+                CHARACTER to jump straight to it; the arrows walk the
+                grid for the ones you cannot type.
+
+  Cardfile      a deck of sixteen cards, saved to CARDFILE.DAT beside
+                the program.  < and > flip, New adds, Del removes - and
+                from the keyboard PGUP/PGDN flip, F7 adds and F8
+                removes (Del is spoken for by the character it deletes).
+                Leaving a card commits it.
+
+  Scrap Box     a plain-text editor.  New / Load / Save along the top,
+                arrows and Home/End within a line, PGUP/PGDN by the
+                page and CTRL+HOME / CTRL+END to the ends of the
+                document.  F7 starts a new one, F3 loads and F2
+                SAVES - the toolbar's three buttons were click-only, so
+                without a mouse you could type a document and had no
+                way to keep it.  Load and Save open the file picker, so
+                you can browse to a folder - or to another drive -
+                instead of typing a path.  F5 FINDS TEXT and F6 finds
+                the next one, case-insensitively, wrapping round at the
+                end - a 16 KB document is more than you can read by
+                scrolling.  A scroll bar down the right says how much
+                there is and where you are; arrows step a line, the
+                trough pages.
+
+  Find File     an 8.3 wildcard (*.TXT, CONFIG.*) sweeps the whole
+                drive and lists name, size and folder.  ENTER opens the
+                result; F4 opens the Disk Cabinet ON ITS FOLDER instead,
+                which is the other half of finding something - sweeping
+                the drive to be handed a path you then have to navigate
+                to by hand is a poor trade.  Arrows pick a
+                result and ENTER opens it in its applet; F3 (or the
+                Search button) asks for another pattern.
+                  F2 (or Text...) sets text a match must CONTAIN, which
+                is how you find the file when you remember what is IN it
+                and not what it is called - DOS has no grep.  The filter
+                is case-insensitive, applies only to files the pattern
+                already matched, and is shown on the panel at all times
+                so it can never quietly drop files from a later search;
+                clear the field to go back to searching by name alone.
+  Sketch Pad    mouse OR keyboard: arrows move the cursor, SPACE applies
+                the current tool, TAB cycles Pen/Fill/Line, [ and ] walk
+                the palette, 0-9 pick a colour outright, X is the
+                eraser, DEL clears a cell, ESC drops a half-drawn line.
+  Typing Tutor  strict-entry drills with live words-per-minute and a
+                persistent best (85%+ accuracy to set a record);
+                Enter restarts the line, Tab skips it.
+  Picture Show  full-screen gallery of every .GIF in ASSETS\ICONS;
+                LEFT/RIGHT browse, ESC returns.
+  Oracle        hardware inventory plus the six-test benchmark with
+                the composite ORACLE SCORE (386SX/16 = 1.00x).
+  Gramophone    plays .WAV and .MID with a spectrum analyzer; EJECT
+                loads another file and + FOLDER fills the playlist.
+                Both open the file picker; + FOLDER opens it in
+                folder mode.
+                From the keyboard: E opens a file, F adds a folder,
+                Space plays or pauses, S stops, PgUp/PgDn step through
+                the playlist and the arrows seek within a MIDI.  E and
+                F work with nothing loaded, because otherwise there
+                would be no way to load anything.
+  Music Box     four classical tunes on the PC speaker, so it works on
+                any DOS machine with no sound card at all, and an
+                oscilloscope whose pitch tracks the note it is sounding.
+                Arrows pick a tune, ENTER plays it or stops it, S stops.
+                Playback carries on while the window is minimised.
+                (Reachable again as of 0.56: the applet was finished in
+                0.44 and then lost its verb for eleven versions.)
+
+THE ARCADE
+----------
+Fifteen Puzzle, Tic Tac Toe, Minefield, Reversi, Serpent, Breaker,
+Echo, Quadrix, Depot, Patience, Lights Out, Pong, 2048 and Corral.
+Breaker, 2048, Corral and the Typing Tutor keep their best runs in
+CASTALIA.HI.
+
+  Corral        click to grow a two-armed fence (Space flips its
+                axis); pens without a ball inside are bricked over.
+                Claim 75% of the floor to clear the level - but a
+                ball striking a growing arm costs a life.
+
+SETTINGS
+--------
+Theme (twelve palettes, from the Win95-true "classic" to the
+pure-VGA "redmond"), Backdrop pattern, Animations, Sound, the
+screensaver delay, and Paper - a < name > cycler that walks the four
+tiles and the eight shipped pictures (Castle, Sunset, Bliss, Cosmos,
+Dunes, Night, Reef, Peaks), applying each on the spot.  "Save to INI"
+makes the current choices permanent.
+
+THE LIGHT SHOW
+--------------
+Seventeen full-screen demoscene effects (plasma, copper bars,
+starfield, fire, Boing, rotozoomer, tunnel, matrix rain, vector
+balls, sine scroller, twister, fireworks, wireframe, voxel flyover,
+raycast corridor, kaleidoscope, ribbons).  SPACE or the arrows switch
+effects, ESC returns.  After the configured idle time it takes over
+as the screensaver; any key or mouse movement returns.
+
+TIPS
+----
+* Mode 12h (640x480) needs ~150 KB free: video=mode12h in the INI.
+* animations=false gives the snappiest feel on a slow 386.
+* Drop any 320x200 GIF (up to 176 colours) into ASSETS\ICONS and it
+  appears in the Picture Show; name it in wallpaper= to use it as the
+  desktop.  See docs\FORMATS.TXT for every file format.
+* Point [drawer] scan=C:\UTILS at a directory and its programs appear
+  in the Program Drawer automatically, no [shortcut] blocks needed.
+* freemem=true on a [shortcut] (with the CASTSHEL.BAT wrapper) gives
+  a big game ALL of conventional memory and brings the desktop back
+  when it exits.
+======================================================================

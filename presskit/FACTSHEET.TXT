@@ -1,0 +1,59 @@
+======================================================================
+ CASTALIA 92  -  FACT SHEET
+======================================================================
+
+PRODUCT
+    Name ............... Castalia 92
+    What it is ......... A graphical operating environment (desktop
+                         shell) for DOS-compatible 386 systems
+    Version at press ... 0.50  (July 2026; the project ships small,
+                         frequent releases on its way to 1.0)
+    Price .............. Free
+    License ............ MIT (source included)
+    Distribution ....... https://github.com/davabe/CastaliaOS
+                         (source + ready-to-run release folder)
+
+DEVELOPER
+    Studio ............. Tombatossals Softworks LLC
+    Created by ......... Dave Abellan
+    Contact ............ hello@tombatossalssoftworks.com
+    Web ................ https://www.tombatossalssoftworks.com
+
+SYSTEM REQUIREMENTS
+    CPU ................ Intel 386SX or better (486 recommended,
+                         Pentium feels like cheating)
+    RAM ................ 4 MB (the shell keeps ~120 KB resident when
+                         launching DOS programs; a free-memory mode
+                         unloads it entirely for big games)
+    Video .............. VGA: 320x200x256 (the flagship mode) or
+                         640x480x16
+    Input .............. Keyboard; Microsoft-compatible mouse
+                         recommended
+    Audio (optional) ... PC speaker (always works), Sound Blaster
+                         for digital WAV, AdLib/OPL2 FM synth for
+                         polyphonic MIDI, Covox Speech Thing and
+                         Disney Sound Source on the printer port
+    OS ................. DOS 3.3 or later (real mode, no extenders)
+
+THE NUMBERS
+    Built-in programs .. 30+ (file manager, editor, paint, media
+                         player, system inspector, benchmark...)
+    Games .............. 13 (minesweeper, solitaire, snake, falling
+                         blocks, sokoban, reversi, 2048 and friends)
+    Colour themes ...... 18, all live-previewable
+    Screensaver ........ 16 demoscene effects (plasma, voxel terrain,
+                         textured raycaster, kaleidoscope...)
+    Wallpapers ......... 8 original GIF wallpapers + tiling papers
+    Source ............. 59 C files, ~22,500 lines of C89
+    External deps ...... none.  Not one library.
+
+ONE-SENTENCE DESCRIPTIONS (PICK YOUR FLAVOUR)
+    Neutral:  Castalia 92 is a free, open-source graphical desktop
+              for DOS that gives 386-class hardware overlapping
+              windows, a taskbar, media playback and thirty built-in
+              programs.
+    Fun:      Castalia 92 is the Windows 95 your 386 was promised
+              and never got - three years early and 120 KB small.
+    Nerd:     A single-binary C89 desktop shell for real-mode DOS
+              with a double-buffered Mode 13h compositor, fixed-point
+              demoscene screensaver and OPL2 General-MIDI playback.

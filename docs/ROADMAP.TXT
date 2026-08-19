@@ -1,0 +1,828 @@
+======================================================================
+ CASTALIA/386 - ROADMAP.TXT
+ What exists now and what is planned.  Versions after v0.1 are
+ intentions, not promises, and may be reordered.
+======================================================================
+
+v0.1  MVP  (THIS RELEASE)  -- DONE
+----------------------------------
+  [x] Boots from DOS as CASTALIA.EXE; restores text mode cleanly on exit
+  [x] VGA Mode 13h (320x200x256) with a programmable themed palette
+  [x] Double-buffered, flicker-free drawing (DOS-allocated back buffer)
+  [x] Embedded 8x8 bitmap font and a full set of 3D widgets
+  [x] INT 33h mouse with a smooth software arrow cursor
+  [x] Desktop background, icon grid with labels, taskbar, live clock
+  [x] "Castalia" launcher button opening the Dominus menu
+  [x] Draggable windows with title bars and close boxes
+  [x] About Castalia/386 dialog
+  [x] System Panel (DOS version, memory, coprocessor)
+  [x] Disk Cabinet: list a directory, enter folders, go up, select
+  [x] Launch external .EXE/.COM/.BAT and a nested COMMAND.COM, then
+      return to the desktop
+  [x] CASTALIA.INI: theme, default path, mouse/clock toggles, desktop
+      icons, Dominus shortcuts
+  [x] ESC and a menu item to exit to DOS
+  [x] README / BUILD / ARCHITECTURE / ROADMAP, Makefile + BUILD.BAT
+
+v0.2  File manager improvements  -- IN PROGRESS
+-----------------------------------------------
+  [x] Modal dialog system (message / confirm / text input) - dialog.c
+  [x] Disk Cabinet toolbar: Up / New / Ren / Copy / Move / Del
+  [x] File operations: make directory, delete, rename, copy, move
+      (with confirmation / input dialogs); keys F7/F2/F5/Del/Backspace
+  [x] Change drive (A:/B:/C:/D:) with a not-ready guard, plus a DOS
+      critical-error handler so absent media fails instead of hanging
+  [x] Scroll bar widget (arrows + proportional thumb + track paging)
+  [x] Draggable scroll-bar thumb - grab it and the list follows the
+      pointer (fast-path list-only repaints); the track still pages
+  [x] Sort the listing by name (case-insensitive), directories then files,
+      with ".." kept first - so the order is stable on real FAT, not just
+      whatever find-first happens to return
+  [x] Selectable sort by extension / size / date - a toolbar button
+      (or F3) cycles Name / Ext / Size / Date; directories stay
+      alphabetical on top, and FAT date+time ride along in each entry
+  [x] Open non-executables via a configurable association table -
+      the built-in table (text->Scrap Box, .ICN->Sketch Pad, audio->
+      Gramophone, FLI/FLC->Cinema, else->Hex Peek) can be overridden
+      per extension from the INI [assoc] section
+  [x] Show free disk space (INT 21h AH=36h) right-aligned on the path line
+
+v0.3  VGA 640x480x16  (Mode 12h)  -- DONE
+-----------------------------------------
+  [x] Planar Mode 12h video back-end behind the SAME vid_* prototypes
+      (4 plane buffers, Map Mask plane select for present/blit, Set/Reset
+      + Bit Mask for the software cursor, attribute-palette identity)
+  [x] INI switch between mode13h and mode12h (video= in CASTALIA.INI)
+  [x] Runtime screen size so the desktop, taskbar and windows adapt;
+      windows open centred in either mode
+  [x] Font is mode-aware: the embedded 8x8 face at 320x200, the crisp
+      VGA ROM 8x16 face at 640x480 (with an 8x8-doubled fallback)
+  [x] All UI metrics derive from the active font height, so title bars,
+      menus, list rows, the scroll bar, dialogs and the taskbar scale to
+      the mode; Mode 13h is pixel-identical to before
+  [x] Icons drawn at 2x (64x64) with a roomier grid on the 640x480 desktop
+
+v0.4  Themes and icons  -- DONE
+-------------------------------
+  [x] Bitmap icons loaded from ASSETS/ICONS (the simple text .ICN format,
+      with transparency; drawn 1x at 320x200 and 2x at 640x480) augmenting
+      the procedural icons - a desktop icon uses its bitmap if one is set,
+      else the built-in shape
+  [x] "Moncloa 92" theme added alongside classic/penumbra/bureau/winsteel
+  [x] Three more themes: "workbench" (an Amiga-desktop homage),
+      "ocean" (deep teal) and "rose" (warm mauve) - eight in all
+  [x] Per-element colour overrides from the INI ([colors] slot=R,G,B),
+      applied on top of the chosen theme
+  [x] Selectable desktop backdrop (solid | dots | weave | gradient).  The
+      gradient is a subtle vertical sweep of the theme's desktop colour via
+      a reserved Mode 13h DAC ramp (slots 192..223); Mode 12h stays solid.
+      All are cheap enough to repaint every frame even at 640x480.
+  [x] Full-image wallpaper: a real GIF decoder (gif.c) shows a 320x200
+      picture behind the desktop (palette in the free DAC window), .ICN
+      tiles cover the motif case, eight pictures ship, Settings cycles
+      them, and the Picture Show browses them full-screen
+
+v0.5  Bundled applets  -- DONE
+------------------------------
+  [x] Calculator (immediate-execution integer +-*/, mouse + keyboard)
+  [x] Scrap Box - a word-wrapping text editor with New/Load/Save
+  [x] Clock / calendar applet (live HH:MM:SS, month grid, today marked)
+  [x] Sketch Pad - a zoomed 32x32 pixel editor with the 16-colour palette
+      and a transparent eraser; Saves/Loads .ICN files, so it is also the
+      icon editor for the v0.4 desktop icons
+  Each applet is its own window kind (calc.c / scrap.c / clock.c /
+  paint.c); the Dominus menu opens them with the internal verbs
+  calc | scrap | clock | paint.
+
+v0.6  Boot splash and the 1 MB memory gate  -- DONE
+---------------------------------------------------
+  [x] Minimum-memory gate: before any video work, Castalia measures RAM
+      and refuses to start on less than 1 MB (conventional + extended),
+      printing a clear message at the DOS prompt.  The probe asks the XMS
+      manager directly (INT 2Fh) and only falls back to INT 15h AH=88h,
+      so a machine running HIMEM.SYS is measured correctly instead of
+      being misread as bare 640 KB.  1 MB is the Amiga-500-class baseline
+      the project targets (512 KB chip + the classic 512 KB slow expansion)
+  [x] Boot splash - splash.c, dispatched by video mode:
+        Mode 13h: a 256-colour set piece built entirely in the DAC -
+          a gradient sunset sky, a fixed starfield, a chrome "CASTALIA/386"
+          logo on a copper raster band, credits, and a progress bar.  Only
+          DAC slots 16..255 are touched, so the themed UI palette (0..15)
+          is left intact for the desktop that follows
+        Mode 12h: a clean 16-colour raised title panel
+  [x] The splash is paced off the BIOS 18.2 Hz tick counter, NOT Open
+      Watcom's CPU-calibrated delay(), so it runs at a steady ~1.5 s on
+      real iron and under an emulator's dynamic core alike
+  [x] System Panel reports the running version and the active video mode
+  [x] Gradient active title bars - a left-to-right dark->light sweep on the
+      focused window, dialog and Dominus header (a reserved 32-step DAC ramp
+      tied to the theme's title colour).  Mode 12h keeps a flat fill, since
+      16 colours cannot ramp; inactive windows stay flat gray in both modes.
+  [x] Dithered drop shadows under windows, dialogs and the Dominus menu
+      (ui_shadow): a 50%-checkerboard dark band offset down-right, so they
+      read as translucent over any background with no alpha - depth without
+      a true blend, the classic late-80s look.
+  [ ] Program Drawer / game launcher (moved to v0.7)
+
+v0.7  Program drawer / game launcher  -- IN PROGRESS
+----------------------------------------------------
+  [x] Program Drawer (drawer.c): a window showing the configured launch
+      entries (the [shortcut] list) as a grid of labelled icons, each with
+      its own .ICN bitmap or the procedural icon for its command, and a
+      working directory.  Double-click or Enter launches through the shared
+      execute_command() path - internal verb or external program alike.
+      Reachable from a default desktop icon and the "drawer" verb; the grid
+      and cell metrics are the desktop's, so it scales 13h <-> 12h.
+  [x] Desktop icon columns now fit the screen height (3 rows at 320x200,
+      4 at 640x480), so a full column never collides with the taskbar.
+  [x] Free-memory launch ("run and unload Castalia") for memory-hungry
+      games: a [shortcut] with freemem=true, started via the CASTSHEL.BAT
+      wrapper, makes Castalia write CASTRUN.BAT and exit so the program
+      runs with ALL of conventional memory; the wrapper then relaunches the
+      desktop.  Gated on a CASTSHEL marker in the environment, so a plain
+      CASTALIA launch (no wrapper) safely falls back to a resident launch.
+      launcher_write_runfile() generates the batch, returning to Castalia's
+      home drive/directory afterwards so the shell comes back in place.
+  [x] Per-entry categories / grouping - solved in v0.9 by dedicated group
+      windows (Toolbox, Arcade) rather than categories inside one drawer
+  [x] The drawer holds up to five columns (a 5x3 grid fits 15 entries in
+      both modes); larger toolsets live in the v0.9 group windows, so no
+      in-drawer scrolling is needed for the curated top-level list
+  [x] Populate the drawer by scanning a directory: [drawer] scan=DIR
+      adds the EXE/COM/BAT files found there to the grid, sorted by
+      name and launched from that directory, capped to the cells the
+      current video mode can show
+
+v0.8  Installer  -- IN PROGRESS
+-------------------------------
+  [x] INSTALL.BAT: copies CASTALIA.EXE, CASTALIA.INI, README and the
+      ASSETS\ICONS bitmaps into a target directory (C:\CASTALIA by default,
+      or a path passed as the first argument), creating the tree as needed.
+      Deliberately conservative for plain MS-DOS 6.22 / FreeDOS: no COPY /Y,
+      no CHOICE; it never overwrites an existing CASTALIA.INI, writes only
+      inside the target, and prints the PATH line for AUTOEXEC.BAT rather
+      than editing the file itself.
+  [x] A graphical INSTALL.EXE that reuses the Castalia UI: a second
+      executable (install/insmain.c linked with the shell's video,
+      font, ui and keyboard objects) - an editable target path, an
+      AUTOEXEC.BAT PATH option, a live copy progress bar and a themed
+      panel with the castle crest.  INSTALL.BAT remains the no-tools
+      fallback for running straight off the distribution disk
+  [x] Offer to append the PATH line to AUTOEXEC.BAT: the explicit
+      "INSTALL <dir> PATH" argument appends it (duplicate-guarded via
+      FIND); without the argument nothing outside the target is touched
+
+v0.9  Amiga-era demos, an Arcade and a Toolbox  -- DONE
+-------------------------------------------------------
+  [x] Light Show (demo.c) - a full-screen demoscene player in Mode 13h that
+      writes the linear back buffer directly and drives the 256-colour DAC,
+      paced off the BIOS tick with an integer sine table and square root (no
+      coprocessor): plasma (a computed field flowed by rotating the palette),
+      copper bars, a 3D warp starfield, fire, and the Boing ball on a magenta
+      grid.  SPACE / arrows switch effects, ESC restores the desktop palette.
+      video.c gains vid_backbuffer(); the effect tables live in far memory.
+  [x] Program-Manager groups (group.c, WIN_GROUP) - a Toolbox of desk
+      utilities and an Arcade of games, each a windowed icon grid of internal
+      verbs that opens the chosen applet (WM_LAUNCH_GROUP).  The top-level
+      launcher keeps the essentials plus Toolbox / Arcade / Light Show icons,
+      so it stays tidy while the toolset grows behind the groups.
+  [x] Three more games in the Arcade: Minefield (a minesweeper with a
+      DIG/FLAG toggle, so no right button is needed), Reversi (Othello vs a
+      greedy, corner-hungry machine) and Serpent (a snake advancing off the
+      BIOS tick, steered with the arrow keys).
+  [x] Two more Toolbox utilities: Cardfile (an index-card notepad - cards in
+      far memory, edited in a near buffer) and Colors (a read-only swatch
+      board of the active theme's sixteen palette slots).
+  [x] A distinct procedural icon for every applet, group and game, plus a
+      toolbox / joystick / starburst / swatch icon for the new launchers.
+  [x] Partial-present fast path: an animating top window (Serpent, Music Box)
+      refreshes just its own footprint each tick instead of the whole
+      64000-byte frame - smoother games and visuals on a real 386SX.
+
+v0.10  A real desktop environment  -- DONE
+------------------------------------------
+  [x] Taskbar window buttons: one per open window in a stable slot order,
+      the focused window's button pressed; click to focus, minimize the
+      focused one, or restore a minimized one.
+  [x] Window minimize: a [_] box next to [X] on every title bar; a minimized
+      window keeps its taskbar button but leaves the desktop.  Focus falls
+      through to the next visible window (order_top_visible centralises the
+      "which window is on top" logic).
+  [x] Alt+Tab cycles the focused window (wm_cycle), restoring it if minimized.
+  [x] Run box: "Run..." in the Dominus menu opens a text box to launch any
+      internal command or DOS program.
+  [x] Window open zoom: the classic dashed-outline zoom-out from the centre,
+      drawn to the visible frame and erased from the back buffer; the window
+      is briefly hidden so the zoom plays over the true pre-window scene.
+      Toggle with animations= in CASTALIA.INI.
+  [x] Idle screensaver: after screensaver=N idle seconds the Light Show takes
+      over (captions off, effects drifting); any key or mouse activity
+      restores the desktop and its palette.
+  [x] Startup chime: a short PC-speaker arpeggio as the desktop appears
+      (sound= toggle).
+
+v0.11  More show, more play, less work per frame  -- DONE
+--------------------------------------------------------
+  [x] Three more Light Show effects: a rotozoomer (a rotated, scaled texture
+      drawn with a no-multiply incremental inner loop), a tunnel (a
+      precomputed depth+angle field flowed by rotating the palette) and
+      matrix rain (falling glyph columns, a bright head trailing into
+      dimming greens; a column repaints its trail only on the frames its
+      head advances) and vector balls (two perpendicular rings of depth-
+      shaded spheres tumbling in 3D, painter-sorted, no polygon filler -
+      fixed-point rotation off the sine table).  Nine effects in all.
+  [x] Window close and minimize zoom: the dashed-outline zoom now plays in
+      reverse when a window closes (out-to-in toward its centre) or minimizes
+      (toward its taskbar button), matching the open zoom.
+  [x] Incremental Serpent: a normal move repaints only the three cells that
+      change (vacated tail, new body segment, new head) and blits just their
+      bounding box - no full-window redraw between bites.
+  [x] Three new themes: Midnight (deep indigo/violet night), Amber (a warm
+      amber-phosphor CRT at dusk) and Matrix (a green-phosphor terminal),
+      each a 16-slot palette selected by name from CASTALIA.INI.  Eleven
+      themes in all.
+  [x] Breaker (breaker.c, WIN_BREAKER) - a block-breaker in the Arcade: a
+      rainbow wall of bricks, a paddle steered by the mouse or the arrow
+      keys, three balls and a score.  The ball advances off the BIOS tick
+      (two sub-steps a tick for smooth bounces) and rides the partial-present
+      fast path: a normal frame erases and redraws only the ball and paddle
+      and blits their bounding box, so the wall is never repainted mid-rally.
+  [x] Non-blocking PC-speaker sound effects (music.c: music_sfx /
+      music_sfx_service, serviced once per main-loop pass) - Breaker rings a
+      pitched blip per brick (higher rows ring higher), a pock off the paddle
+      and a low buzz on a miss.  An effect never interrupts a Music Box tune
+      and honours the sound= INI toggle.
+  [x] Echo (echo.c, WIN_ECHO) - a sound-memory game in the Arcade: the
+      machine flashes a growing sequence across four toned panels (an
+      A-major spread) and you click them back in order; a wrong panel ends
+      the game.  A tiny SHOW/INPUT/OVER state machine paces the playback off
+      the BIOS tick and voices each step through the new sound effects, and
+      INPUT sits idle between clicks so nothing busy-redraws.
+  [x] Music Box oscilloscope: a live filled-sine visualiser whose pitch
+      tracks the sounding note and whose phase scrolls each frame, so the
+      Music Box sings along while it plays (a far sine LUT; the window
+      repaints via the fast path only while it is focused, so background
+      playback stays cheap).  Serpent also gained eat/crash sound effects.
+  [x] Analog clock face in the Clock applet: a round dial with hour ticks
+      and hour/minute/second hands (a far sine LUT, an integer square root
+      for the face and a Bresenham line for the hands) beside the digital
+      HH:MM:SS readout, above the month calendar - all in the same window.
+  [x] Sound across the whole Arcade: Minefield (dig/flag ticks, a boom, a
+      win chime), Reversi (piece placed, game over), Tic-Tac-Toe (the move
+      exchange, win/lose/draw) and the Fifteen Puzzle (tile-slide ticks and
+      a fanfare when solved) all voice their moves through music_sfx now, so
+      every game in the drawer is audible.
+  [x] Fractal (fractal.c, WIN_FRACT) - a Mandelbrot / Julia explorer in the
+      Toolbox.  Q12 fixed-point integer iteration (no coprocessor) colours
+      each pixel by escape time through a reserved 128-entry DAC ramp (slots
+      32..159, clear of the theme).  It renders a few rows per BIOS tick so
+      the window never freezes and you watch it build, with a live
+      percentage; left-click zooms in 2x, and J/M/R/O/I cycle Julia sets,
+      return to the Mandelbrot, reframe, and zoom out/in.  The 24 KB image
+      buffer is grabbed from DOS on first open (not a static array), and the
+      font ROM moved to far memory - together those keep DGROUP under its
+      64 KB cap so the C runtime still has near-heap room to start.
+
+v0.12  Fast and reliable input  -- DONE
+---------------------------------------
+  A pass over responsiveness and click reliability on a real 386SX, where a
+  64000-byte full-frame present costs real milliseconds:
+  [x] Reliable clicks and double-clicks (mouse.c): clicks are driven off the
+      driver's hardware press counter (INT 33h fn 05h), not the polled button
+      STATE.  A slow repaint could keep the loop from polling for tens of ms,
+      dropping a whole press+release - which is why double-clicks used to need
+      four or five tries.  The counter never loses a press, so every click
+      registers, and two presses in one poll is taken as a double-click.
+  [x] Instant Dominus-menu hover: moving the mouse over the menu items redraws
+      ONLY the menu and blits just its footprint (menu_bounds), instead of
+      recomposing and re-presenting the whole desktop on every step.
+  [x] Instant Sketch Pad drawing: a free-hand stroke draws each touched cell
+      straight into the back buffer and blits just that cell (paint_drag_rect)
+      - no whole-scene repaint per painted pixel.
+  [x] Partial present (main.c): render_scene() still composes the whole (always
+      correct) back buffer, but when every change this pass has a known small
+      footprint - highlighting an icon, dropping a moved window, a taskbar
+      clock tick - only that rectangle is copied to VGA.  Anything large or
+      unknown falls back to the full present, the safe default.
+  [x] Snappy window zoom: the open/close/minimize outline zoom no longer waits
+      a whole 55 ms BIOS tick per step (that was ~0.35 s of pure waiting); it
+      now plays as a quick hardware-paced flourish.
+
+v0.13 .. v0.52  The long march (highlights)  -- DONE
+-----------------------------------------------------
+  A condensed record; README.TXT carries the full per-version notes.
+  [x] Sound Blaster WAV playback and OPL2/AdLib FM music with a full
+      General-MIDI voice bank; the skinned Gramophone player
+  [x] GIF/LZW decoder (wallpapers, Picture Show) and the FLI/FLC
+      Cinema player
+  [x] The exact Windows-95 look: cascading Start menu with flyouts and
+      per-item icons, real message boxes, caption-button glyphs, the
+      shutdown sequence, per-app title badges, the system tray
+  [x] More applets and games: Oracle (probe + six-test benchmark),
+      Agenda, Hex Peek, Calendar, Quadrix, Depot, Patience, Lights
+      Out, Eyes, Stopwatch, Pong, 2048, Find File, Picture Show
+  [x] Persistent high scores (CASTALIA.HI), .ICO icon loading mapped
+      to theme slots, scene-cached desktop, partial presents
+  [x] v0.38: the Castalia 92 rebrand - the pixel-art castle Start
+      button, a full icon overhaul, eight original wallpapers, the
+      brutal Oracle score, and this roadmap brought up to date
+  [x] v0.39: WIREFRAME, a thirteenth Light Show effect - a rainbow
+      wire-cube tumbling on three axes with depth-shaded corners,
+      pure integer maths off the shared sine table
+  [x] v0.40: VOXEL LANDSCAPE, a fourteenth Light Show effect - a
+      Comanche-style flyover of a procedural 128x128 terrain, ray-
+      marched front-to-back with a per-column y-buffer, Q8 integer maths
+  [x] v0.41: the System Panel and System Inspector merged into one live,
+      animated dashboard - hardware readout with status LEDs, an
+      oscilloscope + LED clock, charging memory/disk gauges and a BIOS
+      equipment strip (COM/LPT/floppies/game port)
+  [x] v0.42: the Benchmark rebuilt into a six-test suite (two integer,
+      two memory, two video kernels) indexed against a 386SX/16, with a
+      composite CASTALIA SCORE, a machine-class verdict and animated
+      colour-coded bars
+  [x] v0.43: the Gramophone gains a folder playlist - a "+ FOLDER" scan
+      (DOS find-first/next) of up to 48 .WAV/.MID tracks, click-to-play,
+      Prev/Next navigation and MIDI auto-advance
+  [x] v0.44: the Light Show and Music Box apps retired (unlaunchable) to
+      keep the app set focused; the idle screensaver still runs the
+      demoscene reel and the sound engine is untouched
+  [x] v0.45: Settings rebuilt with Theme/Desktop/System tabs, a per-theme
+      window-mockup swatch on every theme button, a taskbar-clock toggle
+      and a theme/video read-out (video_theme_rgb previews a theme's
+      colours without applying it)
+  [x] v0.46: CORRIDOR, a fifteenth demoscene effect - a Wolfenstein-style
+      raycast maze with textured brick walls (16x16 bit-packed grid,
+      per-column ray-march, 16x16 brick texture, distance fog, auto-pilot
+      walk), the indoor twin of the voxel flyover
+  [x] v0.47: three new themes - SUNSET, FOREST and HOT DOG - bringing the
+      palette count to fifteen, each shown as a swatch in the Settings
+      Theme grid (video_theme_rgb)
+  [x] v0.48: KALEIDOSCOPE, a sixteenth demoscene effect - the plasma field
+      folded into eight-fold dihedral symmetry and DAC-cycled into a living
+      mandala; plus three more themes - SLATE, SAKURA and DOS - bringing the
+      palette count to eighteen
+  [x] v0.49: a live hover preview in Settings - point at a theme swatch
+      and a strip under the grid paints a whole miniature screen in that
+      theme's colours beside its name and a one-line character note
+  [x] v0.50: the Gramophone's analyzer learns gravity - bars fall smoothly
+      at the ~18 Hz tick with slow-drifting peak caps, the LCD title
+      crawls while playing; animation only while focused, repaints stop
+      at rest
+  [x] v0.51: Covox Speech Thing and Disney Sound Source support (lptdac.c,
+      declared via lptdac=/lptport= like the BLASTER variable; SB > LPT
+      DAC > speaker), and a localisable Start button (startlabel=)
+  [x] v0.52: the DGROUP diet the gauge demanded - the font face, the
+      eighteen theme palettes, the editor's line table and the demo text
+      pools moved to far memory, the copy buffer halved: ~3.5 KB of near
+      data returned to the heap (91% -> comfortably under the watermark)
+  [x] v0.53: CORRAL (the fence-and-balls arcade puzzle, hiscored), the
+      TYPING TUTOR (strict-entry drills, live WPM, persistent best),
+      RIBBONS (a seventeenth Light Show effect), icons of their own for
+      Pong and 2048, scrolling group windows - and the Great Audit: a
+      four-front systematic sweep that fixed 38 real bugs (sheared
+      narrow GIFs, a truncated-FLC machine hang, phantom clicks after
+      dialogs and launches, data files scattered into browsed folders,
+      midnight tick rollover x3, Pong tunneling, four sprintf overflows,
+      the SB time-constant wrap, a MIDI parser hang, Mode 12h scroll
+      maths, stale Calculator operands, and the rest of that species)
+  [x] v0.54: RECENT DOCUMENTS - Start > Documents leads with the last six
+      files you opened (recent.c, persisted to RECENT.TXT), with "Clear
+      the list" at its foot; a KEYBOARD for the Sketch Pad, which was the
+      only applet in the shell without one (arrows + Space draw, Tab
+      cycles the tool, [ ] and 0-9 pick a colour, X erases); scrollbars
+      for Find File and the Agenda, and a SELECTION for Find File, which
+      until now could not open anything it found; the desktop gradient
+      dithered (22 hard bands -> 69 transitions, at no cost - the dither
+      runs down the rows, so it is still one rep-stosd per scanline);
+      desktop icon selection in the Windows idiom at last (a text-width
+      label plate and a dither-tinted icon, instead of a full-cell plate
+      and a hard white box); the Run-box reference completed and split
+      over two pages, having listed fifteen verbs while omitting nine
+      that work; a wider Help window, because the old one held 34
+      characters and was clipping its own key lines; and the second
+      Great Audit, run as ten scored review rounds by three independent
+      agents against a live DOSBox build.
+
+      That audit's headline: the build was NOT treating warnings as
+      errors.  -wx is the warning LEVEL; the compiler printed W112
+      "Pointer truncated" and exited 0, and three documents claimed
+      otherwise.  -we is on now and the tree is clean at it.  It also
+      turned up eight live instances of the medium-model near/far trap,
+      two of them handing remove()/rmdir() a path assembled from the
+      wrong segment - the Disk Cabinet was deleting a file it had not
+      named.  ci/nearfar.py was rewritten around them (every argument
+      position, cross-module and libc callees, far pointers as well as
+      far arrays, casts, assignments, multi-line declarations) and now
+      carries its own fixture, ci/nearfar_cases.c: eleven shapes it must
+      flag and seven it must not.  A gate that reports OK over live
+      corruption is worse than no gate, and this one had done it twice.
+
+      Two performance items came out of it: app_find() was linear-
+      scanning all forty far applet rows for every window on every
+      compose, and the per-frame animation was a hand-written chain of
+      sixteen wm_top_kind() calls that a new applet had to be added to by
+      hand or it silently never ticked.  Both now live in the window
+      table, beside the draw and key entries that were already there.
+
+      Mode 12h's flat desktop is now a DECISION rather than an omission.
+      A fourth attempt at dithering it (five fixed bands, a continuous
+      17-level Bayer ramp, and that ramp capped so it would not run to
+      black) was photographed and reverted like the three before it.  The
+      cause is finally understood and written into video.c: darkening
+      teal needs a darker TEAL to interleave with, and the sixteen theme
+      slots do not contain one.  The planar dither primitive gained
+      variable density along the way, which is what made the experiment
+      possible and which the scrollbar trough now uses.
+
+  [x] v0.55: A FILE PICKER (filedlg.c).  Every path prompt in the shell
+      was a bare text field - Load and Save in the Scrap Box and the
+      Sketch Pad, the Hex Peek, the Gramophone - so you had to know the
+      path already and type it correctly, in a shell whose whole point is
+      that you can see your disk.  It is the control the era used and the
+      one most conspicuously missing.  Folders first with a wildcard
+      filter on the files, arrows/PgUp/PgDn/Home/End, Enter to descend or
+      to open, Backspace on an empty field to go up, a typed name that
+      overrides the selection, the shared scrollbar, and the browsed
+      folder along the foot elided from the front.  It browses without
+      disturbing the caller's directory, and drains its accrued INT 33h
+      presses on the way out the way dialog.c does.
+
+      Wiring the picker into COPY and MOVE - the two filedlg.h had
+      claimed since the day it was written and never got - found three
+      defects in it.  It DROPPED CLICKS: measured A/B under one harness,
+      two clicks a second apart on a folder row registered as zero with
+      the polled button level and worked with INT 33h's latched press
+      count, which is what main() and the rest of the shell already read.
+      (The obvious explanation is wrong and the code says so: dialog.c
+      polls the level identically and does not drop the same click, built
+      and tested without a fix.)  ENTER could not reach a subfolder in
+      Save mode, because it took any non-empty field as a typed name and
+      the field is pre-filled before the dialog is on screen; it tracks
+      whether the field was edited now, so an untouched field follows the
+      highlight and a touched one wins.  And changing folder DISCARDED
+      that pre-filled name, so browsing to a destination deleted the
+      suggestion on arrival and Save then did nothing at all.
+
+      Both listers also stopped hiding truncation.  Each walked the
+      directory until its table was full and dropped the rest silently -
+      the picker at 96 entries, which a real DOS directory passes easily
+      - so the file you came for was missing from a list that still
+      looked complete.  The picker's table is 200 now, matching the
+      Cabinet, and both mark a truncated listing with a red "+more".
+      The flag went first onto files.c's add_entry(), which has a
+      FILES_MAX guard that LOOKS like the cap but is only ever reached by
+      ".."; the real one is the point where the single directory walk's
+      two ends meet.  A 250-file directory still reporting no truncation
+      is how that was caught.
+
+      And the picker can reach OTHER DRIVES.  It could only ever see what
+      was under the drive it opened on: no drive control, and typing a
+      path is not an alternative because the name field is fourteen bytes
+      - an 8.3 name and a nul.  Saving to a floppy was not possible at
+      all.  Up from a drive root lists the drives, the level My Computer
+      occupies elsewhere in the shell.  That found join() prefixing the
+      browsed folder to names that were already paths (C:\HERE\A:GAME.SAV),
+      and a restore that put back the caller's directory but not its
+      DRIVE - chdir("C:\DOCS") sets drive C's current directory without
+      making C current, so cancelling out of a browsed drive left the
+      whole shell standing on it.
+
+      Paging keys, found by sweeping every scrollable view for one rather
+      than waiting to trip over the next.  The SCRAP BOX moved by a
+      single line and no more, so a document longer than the window could
+      only be crossed by holding an arrow down - in an editor whose own
+      Load dialog has had PgUp/PgDn from the start; it has PgUp/PgDn and
+      Ctrl+Home/End now (Home and End are the ends of the LINE, so the
+      document's ends had no key at all).  The PROGRAM DRAWER, given a
+      scrollbar in 0.54, still walked its grid one row at a time with
+      sixteen shortcuts plus sixteen scanned programs to cross.  Both
+      take their page size from the row count the DRAW publishes, so a
+      page is the page on screen whatever the window was resized to.
+      F1's Scrap Box line and the guide's Cabinet key list (which still
+      omitted F6, Home/End, F3 and type-ahead) were brought back in line
+      with the code.
+
+      And the EPX upscaler was kept out of the frame loop.  Unselected
+      icons are composed into the scene cache once, but the SELECTED cell
+      is recomposed every frame, so the change that made Mode 12h's icons
+      look better had put a 1024-pixel pass back into exactly the place
+      the scene cache exists to keep empty.  icon.c caches the expansion,
+      keyed on the icon - with a flush, because desktop.c swaps two
+      IconBitmaps' contents to rearrange them and icon_load() rewrites a
+      slot in place, both leaving the address unchanged while the pixels
+      change.
+
+      With it: the Disk Cabinet's last keyboard gaps - Move had no key
+      while New, Rename, Copy and Delete all had one (F6 now), Home/End,
+      and TYPE-AHEAD, which on a FAT directory of any size is the
+      difference between finding a file and scrolling for it.  And real
+      card faces in Patience: clipped corners, a mirrored bottom-right
+      index, a centre pip and a shadow hairline, so a fanned pile reads
+      as separate cards instead of one striped block.
+
+      Mode 12h's TITLE BAR is a real gradient now, dithered navy into
+      light blue in seventeen banded fills.  The desktop could not be
+      done this way - the palette has no darker teal - but the title bar
+      has its pair, and that flat bar was most of why Mode 12h read as
+      the unfinished mode beside Mode 13h's 32-step sweep.
+
+      And Settings asks before closing on unsaved preferences.  It
+      applies every change LIVE, so the desktop already looks right while
+      nothing has reached the INI - the one case where closing silently
+      is most likely to be mistaken for having saved.
+
+      VECTOR BALLS finally has spheres.  vball_disc filled one colour, so
+      what the effect's own header calls "shaded spheres" was a ring of
+      flat octagonal confetti; four concentric shells with the highlight
+      drifting up-left give each ball form, and the depth shade was
+      re-scaled to leave headroom for them.
+
+      The VOXEL LANDSCAPE was three flat slabs and is now a flyover.
+      Three causes, all separate: the camera sat at 176 on terrain that
+      tops out at 239, so the flight threaded BETWEEN the ridges and each
+      one projected to the horizon and painted the whole frame below it;
+      VX_HSCALE at 380 made even the z=2 march ring land on screen, and
+      a ring at distance z spans 2z map cells across all 320 columns, so
+      that ring was four cells wide - 80-pixel slabs; and terrain colour
+      is baked per map cell, so there was no distance cue at all.  Camera
+      to 296, HSCALE to 2048 (first visible ring now z=11, ~14 columns
+      per cell), and every terrain band reserves its first ten slots as
+      a fog ramp the drawcall subtracts into.  The first cut of the fog
+      gave water and sand no reserve, so a distant lake underflowed into
+      the sky band.
+
+      The boot LOGOTYPE stopped slicing its own lowercase in half.  The
+      chrome ramp bottomed out near-black at 45%; a capital fills all
+      eight rows so on C and 92 that read as chrome, but lowercase ink
+      starts at row 2, putting the same slot dead centre of the x-height.
+      Its darkest step is a mid steel-blue now, and the logotype gained a
+      one-SCREEN-pixel rim - a logical-pixel rim is 2px a side at scale
+      4, which leaves more outline than letter, and was photographed
+      before being thrown away.  A hard two-tone was tried and rejected
+      the same way.
+
+      Mode 12h ICONS are scaled rather than doubled.  32x32 art shown at
+      64x64 turned every diagonal into 2x2 steps - survivable on a
+      monitor bezel, not on the round About bubble.  EPX/Scale2x rounds
+      the diagonals without inventing a colour, so the result still fits
+      the sixteen slots.  It composes into a far scratch buffer because
+      drawing in place can only ADD pixels, which fattens a silhouette
+      instead of smoothing it.
+
+      And release/ stopped shipping stale documentation.  Its README sat
+      three versions behind, still telling users Alt+Tab cycles windows
+      long after that moved to Shift+Tab, because nothing compared the
+      shipped copy to the original.  ci/release.sh does now - README
+      parity, an ASSETS mirror, and a binary carrying the current
+      version, with byte-exact parity demanded of tag builds (the Watcom
+      build is reproducible from clean, which is what makes that sound).
+      The publish job had never restaged assets/ at all.  README.TXT
+      itself opened with 1069 lines of changelog, putting INSTALLING at
+      line 1247 of 1396; the history moved to the end, and the NEW IN
+      0.54 section that had only ever existed in release/RELEASE.TXT was
+      folded back in.
+
+  A sweep for controls the MOUSE could reach and the KEYBOARD could not
+  found five, three of which cost the user work rather than convenience.
+  The CARDFILE's whole toolbar was click-only, so without a mouse it
+  opened on card one and the other fifteen were unreachable - in the one
+  applet holding the user's own data (PgUp/PgDn flip, F7 adds, F8
+  removes; F1's line for it had every word wrong).  The SCRAP BOX and
+  SKETCH PAD had New/Load/Save click-only, so you could compose a whole
+  document or draw a whole icon and have no way to KEEP it (F7/F3/F2 in
+  both, the same three keys, factored so mouse and keyboard share one
+  save path).  The CHARACTER MAP had no key handler at all - typing a
+  character now selects it.  And the GRAMOPHONE returned FALSE from its
+  key handler whenever nothing was loaded, with Eject - the thing that
+  loads - behind that guard; E and F now come first, S stops and
+  PgUp/PgDn step the playlist.  Eject also finally opens the PICKER
+  rather than a bare text field, which the roadmap had claimed since the
+  picker was written.
+
+  Everything else was already covered: Settings, the Stopwatch, the
+  Agenda, the Calendar, the Oracle and the Disk Cabinet.
+
+  TAGGING, and a folder picker to go with it.  Clearing out a directory
+  was Del-confirm-Del-confirm once per file, with a rescan moving the
+  cursor between each.  Space tags and steps down, plus/minus/star tag
+  all, clear all and invert, and Delete, Copy and Move act on the whole
+  set with ONE question.  Copy and Move needed somewhere to put a set
+  that has no single filename, so filedlg grew a folder mode - which the
+  Gramophone's + FOLDER took immediately, that having been the last
+  prompt in the shell still asking users to type a path from memory.
+
+  Four ways your files could disappear, all closed.  New in either
+  editor kept the OLD filename, so New-then-Save offered the name of the
+  document you had just been reading and wrote a blank page over it.  A
+  CARDFILE.DAT holding more than sixteen cards was rewritten short the
+  moment you flipped a card - the Agenda had refused to overwrite what
+  it could not fully read for versions, and the Cardfile had not.  A
+  bulk copy into the folder the files were already in EMPTIED them,
+  because fopen(dst,"wb") truncates before the read starts; that one was
+  mine, shipped and then found by running the case I had not tried.  And
+  a bulk copy over existing files did it silently, where single-file
+  Copy had always asked.
+
+  The lesson written into the work rather than just noticed: destructive
+  code gets its adversarial cases enumerated BEFORE it ships.  The two
+  found that way - the overwrite prompt and the cross-drive move - cost
+  minutes; the one found afterwards cost two files and a commit.
+
+  VERIFICATION, made reproducible.  The DOSBox harness that found nearly
+  every visual defect in this version lived outside the repository and
+  did not survive the container being recycled; it is tools/shot.sh now,
+  with the two details that cost an hour each written into its header -
+  xdotool's window coordinates sit ~48px above the DOS screen's, and
+  DOSBox coalesces a fast double click.  ci/smoke.sh runs without
+  ImageMagick (ffmpeg + python3 will do), so the one gate that actually
+  BOOTS the program is available on a machine that has the compiler.
+  And tools/regress.sh drives eight cases where a regression costs the
+  user their work, asserting on the disk afterwards.
+
+  Twice a case of mine went green while measuring nothing, and both are
+  written up because the lesson is not "write tests": the same-folder
+  copy passed with BOTH guards disabled, because the run stopped at a
+  prompt it never answered; and the Mode 12h picker case passed with its
+  bug reintroduced, because a dialog sized with a negative height DRAWS
+  NOTHING but still runs its modal loop - invisible and alive, so a blind
+  keyboard save through it writes the same file a visible one would.
+  That case asserts on pixels now.  A passing test is a claim, and claims
+  get checked by breaking the fix underneath them.
+
+  The negative height was mine: SCREEN_H * 73 is 35040 at 480, which
+  wraps a 16-bit int to -30496.  splash.c has carried a comment about
+  precisely that trap since fit_scale was written and I walked into it
+  anyway, so ci/consistency.sh flags SCREEN_W or SCREEN_H multiplied by a
+  literal past the safe bound without a (long).  It caught a real
+  reintroduction within the hour.
+
+v0.56  What the shell knew and did not say
+------------------------------------------
+  [x] Shut Down asked about a typed Scrap Box and a drawn Sketch Pad and
+      nothing else, so a theme picked in Settings - which applies LIVE,
+      and is therefore the one unsaved state that looks saved - died in
+      silence, though merely CLOSING the window would have asked.  The
+      Cardfile and the Agenda were the same shape: both decline to write
+      a file that holds more records than their table, since rewriting
+      it from the truncated table would delete the rest, and both said
+      so only in a red banner that lives and dies with the window.
+      ok_to_quit() now mirrors wm_close_id() and says so in a comment,
+      because the two drifting apart is the bug and not the symptom.
+  [x] The Agenda opened with NO row selected, so Space to tick and Del
+      to remove - the only two keys that do anything - were inert until
+      an arrow key was pressed.  Found because the regression case for
+      the paragraph above failed: the tick reached nothing, so nothing
+      was unsaved, so the shell quit happily.  The workaround would have
+      been to press Down first in the test.
+  [x] Find File searches what is INSIDE a file (src/textscan.c), which
+      is the question DOS has no grep to answer.  Its own module because
+      the risk is all in one place - a 512-byte reader must carry the
+      last nlen-1 bytes of each block into the next or a match across a
+      boundary is invisible, one blind spot every 512 bytes, which reads
+      as flakiness rather than as a bug.  tests/ owns that now: sixteen
+      cases, and deleting the carry turns exactly the four boundary ones
+      red.
+  [x] My Computer drew every drive as a diskette and captioned it "Local
+      Disk", so the icon contradicted the label and A: was
+      indistinguishable from C:.  DOS answers this directly - INT 21h
+      AX=4409h for remote, AX=4408h for removable - and the answer is
+      cached at enumeration, not asked 26 times per compose, which is
+      the mistake the free-space cache thirty lines above exists to
+      correct.
+  [x] The folder view's drive row was a fixed A: B: C: D: - dead buttons
+      for drives the machine did not have, and no button at all for E:
+      upwards.  It is the real enumeration now.
+  [x] The SCRAP BOX holds 16 KB instead of 4, its buffer moved out of
+      DGROUP into far memory - it was the largest single thing left in
+      the segment, which the memory gate had at 93% and now has at 86%.
+      A notepad that cannot hold a README is not a notepad; opening one
+      meant the Save was refused rather than destroy the tail.  The
+      medium model passes a plain char * as NEAR, so fread, fwrite and
+      memmove cannot see the new buffer: load and save stage through a
+      512-byte near buffer and the insert/delete moves are hand-rolled.
+  [x] The Scrap Box's LOAD BUTTON did nothing whatever.  act_load passes
+      g_file to the picker as the buffer to fill and then passes the
+      same g_file to scrap_open as the path - and scrap_open opens with
+      scrap_new(), which clears g_file.  The path was empty by the time
+      it was read.  Fixed in the callee, not the caller.
+  [x] The Scrap Box has a SCROLL BAR, which it was the only scrolling
+      view in the shell to lack - and the 16 KB buffer made that my
+      problem rather than a nicety.  Adding it exposed the bug drawer.c
+      and find.c both carry comments about: snapping the view to the
+      caret on every draw makes the scroll arrows dead, because the next
+      compose undoes the click.  Third module to walk into it.
+  [x] FIND TEXT in the Scrap Box (F5, F6 for the next), through the
+      same text_needle() fold Find File uses on a file - so "himem"
+      matches HIMEM in both places and the program has one answer to
+      what matching means.
+  [x] Four verbs resolved to the wrong icon or none: picshow, effects
+      and tunes fell through to the generic file page, and "lightshow"
+      contains "lights" so the Light Show wore the Lights Out lamp grid.
+      ci/icons.py re-parses the chain out of ui.c and fails on any verb
+      with no icon of its own.
+  [x] The CALENDAR has its own icon rather than the Agenda's clipboard.
+  [x] The SKETCH PAD shows which drawing it has open, in its title bar -
+      its toolbar is full, and Save pre-fills the picker with a name the
+      user could not see.  wm_set_title() is new and general.
+  [x] Saving from the picker's DRIVE LIST wrote to a folder called
+      "Drives": g_dir holds that literal while the list is showing, and
+      the accept path joined it to the typed name.  Enter and OK pick
+      the highlighted drive now, keeping the name for the folder you
+      land in.
+  [x] A path too long for the Scrap Box's toolbar was cut from the
+      RIGHT, so C:\DOCS\LETTERS\NOTES.TXT read "C:\DOCS\LETTERS\NOTE" -
+      the whole of the identifying part discarded.  Base name now.
+  [x] The MUSIC BOX is reachable again - see below.  A finished applet
+      with no verb, and a verb the manual had promised for eleven
+      versions.
+  [x] FORMATS.TXT's verb list omitted Corral, the Typing Tutor and Help
+      entirely; that list is also what iconN_command= and [shortcut]
+      command= take, so putting the Typing Tutor on the desktop meant
+      guessing its name.  Gated both ways now: every documented verb
+      must exist, and every applet execute_command opens must have at
+      least ONE of its names documented - by CLUSTER, since demanding
+      that the manual list snake AND serpent would make it a thesaurus.
+
+RESOLVED IN 0.56 - THE MUSIC BOX IS REACHABLE AGAIN
+---------------------------------------------------
+  WIN_MUSIC had a draw, a click handler, a tick and a row in window.c's
+  applet table, and NOTHING OPENED IT.  It was retired in 0.44 along
+  with the Light Show; the Light Show came back and this did not, but
+  its window half was left in the tree - and main.c had gone on calling
+  music_tick() every pass behind a wm_has_kind(WIN_MUSIC) that could
+  never be true.  FORMATS.TXT promised the verb for eleven versions.
+
+  The two options were to delete the applet half or to give it a verb
+  again.  The verb, because the applet turned out to be FINISHED: four
+  tunes on the 8253, asynchronous playback that keeps going while the
+  window is minimised, and an oscilloscope whose pitch tracks the
+  sounding note.  Deleting working code to resolve a bookkeeping problem
+  is the wrong trade; a shell with a good thing in it that nobody can
+  reach is a shell with a missing feature.
+
+  What it needed beyond the verb: a KEY HANDLER (arrows pick, Enter
+  plays or stops, S stops), which is why it and the Character Map were
+  the only two applets found in the 0.55 keyboard sweep with a click
+  handler and no keys - the Character Map was fixed then and this was
+  left, having no user to fix it for.  A selection cursor distinct from
+  the playing row, so you can look at one tune while another plays.  A
+  Toolbox entry.  And a scope height derived from the font like every
+  other metric in the shell, rather than a fixed 40 pixels that was half
+  the window in one video mode and a strip in the other.
+
+v1.0  Stable release
+--------------------
+  [x] A memory gauge for the diet: CI now reads the linker map and fails
+      the build when DGROUP (the single 64 KB near-data segment: statics,
+      stack and the near heap stdio lives in) passes a 56 KB watermark -
+      ci/memory.sh
+  [ ] Hardened on several real 386/486 machines and common mouse drivers
+      STILL OPEN, and the only thing between this and 1.0.  What HAS been
+      done is the half that does not need the hardware: running at its
+      SPEED.  tools/shot.sh takes CYCLES=<n>, and cycles=1100 under
+      DOSBox is about a 386SX/16 - the low end of what the README claims.
+      Two runs at that setting found a real defect:
+
+        * TYPING LOST MORE THAN HALF ITS CHARACTERS.  The main loop read
+          one key per pass, which is fine at Mode 13h speeds and not fine
+          when a Mode 12h compose takes long enough for a typist to
+          outrun the frame rate: the fifteen-key BIOS buffer fills and
+          the BIOS discards the rest.  "the quick brown fox jumps over
+          the lazy dog" arrived as "the quick brown fo ".  All three
+          input loops - main, dialog, filedlg - drain up to sixteen keys
+          now, sixteen because the buffer holds fifteen.
+
+      And these came back CLEAN, which is worth recording because a sweep
+      is only evidence if the negatives are reported too:
+
+        * Double-click launches.  The mouse path already reads the
+          driver's press COUNTER rather than polled state, and treats two
+          presses in one poll as a double-click - someone hit this on the
+          mouse side long ago and fixed it; the keyboard side was the
+          half nobody had checked.
+        * The Fractal renders progressively with a percentage and the
+          cursor keeps moving: about 80 seconds for a full Mandelbrot,
+          which is era-appropriate and never looks hung.
+        * The Light Show still animates - 78% of the screen changing
+          inside a third of a second - so the showpiece is watchable.
+        * Mode 12h at 386SX speed is usable, not merely correct: the
+          desktop, My Computer and the Scrap Box all behave.
+
+      What speed cannot answer: real mouse drivers, real VGA cards, the
+      critical-error handler against a real unready floppy, and BIOS
+      variations.  Those still need the machines.
+  [x] Documented, frozen CASTALIA.INI and icon/theme formats -
+      docs/FORMATS.TXT (INI reference, .ICN, .ICO subset, GIF rules,
+      CASTALIA.HI, theme names)
+  [x] Run-time CPU detection in the System Panel (system.c cpu_detect):
+      the EFLAGS AC-bit toggle separates 386 from 486+, the ID-bit toggle
+      gates CPUID, and CPUID reports the family - shown as 80386 / 80486 /
+      80586-class / 80686-class.  (Deferred from the MVP; now done.)
+  [x] Polished docs and a small user guide - docs/GUIDE.TXT
+
+NON-GOALS (still out of scope at v1.0)
+--------------------------------------
+  Multitasking, a kernel/bootloader, Win16/Win32 compatibility, a TCP/IP
+  stack, USB, sound-card mixing, protected-mode drivers, long file names,
+  and modern image/font formats.  Castalia stays a small, honest DOS
+  shell.

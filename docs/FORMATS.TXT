@@ -1,0 +1,140 @@
+======================================================================
+ CASTALIA 92 - FORMATS.TXT
+ The frozen on-disk formats: CASTALIA.INI, .ICN icons, .ICO support,
+ GIF wallpapers and CASTALIA.HI.  These are stable as of v0.38 and
+ will only ever be extended, never broken.
+======================================================================
+
+1. CASTALIA.INI
+---------------
+Read from the current directory at start-up.  Lines beginning with ';'
+or '#' are comments.  Every key has a built-in default, so any line -
+or the whole file - may be deleted.
+
+  [system]
+    theme=NAME        classic | penumbra | bureau | winsteel | moncloa
+                      | workbench | ocean | rose | midnight | amber
+                      | matrix | redmond | sunset | forest | hotdog
+                      | slate | sakura | dos         (default: classic)
+    video=MODE        mode13h (320x200x256) | mode12h (640x480x16)
+                                                     (default: mode13h)
+    default_path=DIR  starting directory for the Disk Cabinet  (C:\)
+    animations=BOOL   window zooms and palette fades           (true)
+    screensaver=N     idle seconds before the screensaver; 0=off (90)
+    sound=BOOL        PC-speaker chime and effects              (true)
+    lptdac=DEV        off | covox | dss - a parallel-port DAC for the
+                      Gramophone's WAV playback (declared, never
+                      probed; a printer would print the bytes)  (off)
+    lptport=N         which LPT carries the DAC, 1..3; the port
+                      address is read from the BIOS data area     (1)
+    startlabel=TEXT   the Start button's caption; the button sizes
+                      itself to fit the label             ("Inicio")
+
+  [mouse]   enabled=BOOL                                        (true)
+  [clock]   enabled=BOOL   taskbar HH:MM clock                  (true)
+
+  [desktop]
+    pattern=P         solid | dots | weave | gradient       (gradient)
+    wallpaper=PATH    a .ICN (tiled 32x32 motif) or a .GIF (full
+                      320x200 picture, Mode 13h only); "" = none
+    iconN_name=TEXT   N = 1..8; the first icon1 REPLACES the built-in
+    iconN_command=CMD internal verb or DOS program (see below)
+    iconN_icon=PATH   optional .ICN / .ICO bitmap for the icon
+
+  [colors]            optional per-slot overrides on the theme
+    SLOT=R,G,B        slots: black title desktop face shadow hilight
+                      white ltblue red yellow dkyellow green dkgray
+                      blue cyan cream               (values 0..255)
+
+  [drawer]            the Program Drawer's optional directory scan
+    scan=DIR          the EXE, COM and BAT files found there join the
+                      [shortcut] entries in the grid (sorted, run with
+                      DIR as their working directory; capped to what
+                      the screen can show)
+
+  [assoc]             file associations for the Disk Cabinet
+    EXT=APPLET        a double click on *.EXT opens there.  Applets:
+                      scrap | paint | gram | cinema | peek | dos.
+                      Overrides the built-in table (TXT DOC ME LOG INI
+                      ASC->scrap, ICN->paint, WAV MID MIDI->gram,
+                      FLI FLC->cinema, EXE COM BAT->dos, else->peek)
+
+  [shortcut]          one block per launcher entry; the first block
+    name=TEXT         REPLACES the built-in menu.  These entries fill
+    command=CMD       the Dominus menu AND the Program Drawer.
+    path=DIR          optional working directory for external programs
+    icon=PATH         optional .ICN shown in the drawer
+    freemem=BOOL      unload Castalia while the program runs (needs
+                      the CASTSHEL.BAT wrapper; see README)
+
+  Internal verbs: fileman sysinfo inspect oracle bench about help
+  exit drawer tools arcade demos pictures find run settings scrap
+  calc clock paint charmap colors fractal stopwatch eyes agenda
+  peek cardfile calendar gram play cinema puzzle ttt mines
+  reversi snake breaker echo quadrix depot patience lights pong
+  corral typist music 2048.
+  Anything else is run as a DOS program (.EXE/.COM/.BAT).
+  "gram" opens the Gramophone empty; "play" asks for a sound file
+  first, the way "peek" asks for a file to inspect.
+  One name per applet is listed, but most answer to a second:
+  games=arcade, solitaire=patience, sketch=paint, serpent=snake,
+  minefield=mines, tetra=quadrix, sokoban=depot, memory=echo,
+  gallery=pictures, timer=stopwatch, control=settings, and so on.
+  Either spelling works; the aliases are left out for brevity, not
+  because they are unsupported.
+  ("music" works again as of 0.56.  The Music Box was retired in 0.44
+  and its window kept its draw, its click handler and its tick for
+  eleven versions with nothing able to open it, while this list went on
+  promising the verb.  The verb is back rather than the applet deleted:
+  it was finished, and a working thing nobody can reach is the easier
+  of the two problems to fix.)
+
+2. .ICN icon bitmaps
+--------------------
+Plain text, human-editable, written by the Sketch Pad:
+
+    ; any comment lines
+    CICN 32 32
+    <32 rows of 32 characters>
+
+Each character is one pixel: a hex digit 0-F selects the theme palette
+SLOT of that number (so icons recolour with the active theme), and '.'
+(or any other character) is transparent.  Rows shorter than 32 leave
+the remainder transparent.  Icons draw at 1x in Mode 13h and 2x in
+Mode 12h.
+
+3. .ICO Windows icons
+---------------------
+Real Windows .ICO files are accepted wherever a .ICN is (iconN_icon=,
+shortcut icon=).  The best 32x32 image inside is used; 1/4/8-bit
+palettised and 32-bit ARGB images are understood, and every colour is
+mapped to the NEAREST theme slot at load, so Win95-era art recolours
+with the theme.  Alpha below 50% (or the palettised transparency) maps
+to transparent.
+
+4. GIF wallpapers (and the Picture Show)
+----------------------------------------
+GIF87a and GIF89a, LZW, interlaced or not.  The first image is used;
+pictures larger than the screen are clipped, smaller ones are centred
+(wallpapers: top-left).  Up to 176 colours are honoured: the palette
+loads into the free DAC window 16..191, leaving the 16-colour UI
+palette (slots 0..15) and the reserved gradient ramps (192..255)
+intact.  The shipped set is 320x200 at 128 colours.  Mode 13h only.
+
+5. CASTALIA.HI - high scores
+----------------------------
+Plain text, one record per line:
+
+    <game-key> <score>
+
+where <game-key> is a single word of up to 11 characters (for example
+"breaker" or "2048") and <score> a signed long.  Up to 16 records are
+kept; unknown keys are preserved.  A missing or read-only file simply
+means "no records yet" - the games never fail on it.
+
+6. Theme names
+--------------
+classic penumbra bureau winsteel moncloa workbench ocean rose midnight
+amber matrix redmond - each a fixed 16-slot palette by name; the
+[colors] section fine-tunes single slots on top.
+======================================================================

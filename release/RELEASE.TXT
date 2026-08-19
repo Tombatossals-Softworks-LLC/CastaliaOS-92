@@ -1,0 +1,839 @@
+======================================================================
+ CASTALIA 92  -  Version 0.56  -  READY-TO-RUN RELEASE
+ A graphical operating environment for DOS-compatible 386 systems.
+ (C) Tombatossals Softworks LLC.  Created by Dave Abellan.  MIT License.
+======================================================================
+
+NEW IN 0.56  -  WHAT THE SHELL KNEW AND DID NOT SAY
+-----------------------------------------------------------------------
+    * FIND TEXT IN THE SCRAP BOX.  F5 finds, F6 finds the next,
+      case-insensitively and wrapping at the end.  The document grew to
+      16 KB this release, which is more than anyone can read by scrolling.
+    * THE SCRAP BOX HAS A SCROLL BAR.  It was the only scrolling view in
+      the shell without one, which mattered little at 4 KB and a great
+      deal at 16: arrows step a line, the trough pages, and the thumb
+      finally says how much document there is and where you are in it.
+    * THE SKETCH PAD SAYS WHICH DRAWING IS OPEN, in its title bar.  Save
+      pre-fills with the name it is holding, so a name you cannot see is
+      a file you can overwrite by accident.
+    * THE SCRAP BOX HOLDS 16 KB, not 4.  Its buffer was the largest thing
+      left in the 64 KB near-data segment the whole shell shares, and it
+      bought a notepad that could not hold a README - open one and the
+      Scrap Box refused to save it back rather than destroy the tail.  The
+      buffer lives in far memory now: four times the document, and the
+      near segment drops from 93% full to 86%, which is the headroom
+      everything else has to grow into.
+    * THE SCRAP BOX'S LOAD BUTTON WORKS.  It did nothing at all - no
+      error, no file, no change - because the path handed to the loader
+      was the same buffer the loader clears before reading it.
+    * THE MUSIC BOX PLAYS AGAIN.  It lost its verb in 0.44 and kept
+      everything else - four tunes on the PC speaker, playback that
+      carries on while the window is minimised, an oscilloscope that
+      tracks the sounding note - so the shell has spent eleven versions
+      with a finished applet nobody could open, while the manual went on
+      listing "music" as a thing you could type.  Now you can, and it
+      answers to the keyboard: arrows pick a tune, Enter plays it or
+      stops it, S stops.  It is in the Toolbox too.
+    * SHUT DOWN ASKS ABOUT ALL OF YOUR WORK, NOT SOME OF IT.  Closing a
+      window over unsaved changes had always asked; leaving the shell
+      asked about the Scrap Box and the Sketch Pad and nothing else.
+      SETTINGS applies every change live, so the desktop already wore
+      the new theme while CASTALIA.INI still held the old one - the one
+      unsaved state that looks saved - and Shut Down discarded it in
+      silence, though merely closing the window would have stopped and
+      asked.  The CARDFILE and the AGENDA refuse to write a file holding
+      more records than their table, because rewriting it from the
+      truncated table would delete the rest for good; both said so in a
+      red banner that lives and dies with the window, so an edit made
+      and buried was gone without a word.  All four are asked about now.
+    * FIND FILE SEARCHES WHAT IS INSIDE A FILE.  A Text field beside
+      Pattern, or F2: case-insensitive, applied only to the files the
+      name pattern already matched, and shown on the panel at all times
+      so a filter can never quietly drop files from a later search.
+      This is the question DOS has no grep to answer - which file
+      mentions HIMEM, which save has your name in it.
+    * MY COMPUTER STOPS CALLING EVERY DRIVE A FLOPPY.  Every drive was
+      drawn as a 3.5" diskette and captioned "Local Disk" underneath, so
+      the icon contradicted the label and a real floppy in A: looked
+      exactly like the hard disk at C:.  DOS is asked instead (INT 21h
+      AX=4408h/4409h): a fixed disk, a network drive and a diskette now
+      have their own icons and their own captions.
+    * THE DRIVE ROW SHOWS THE DRIVES YOU HAVE.  It was a fixed A: B: C:
+      D: - half of them dead on a machine with no second floppy, and no
+      button at all for a CD or a network drive at E: or beyond, which
+      could only be reached by going out to My Computer and back in.
+    * THE AGENDA RESPONDS TO ITS OWN KEYS.  It opened with no row
+      selected, so Space to tick and Del to remove - the only two keys
+      that do anything - were inert until an arrow key was pressed.
+    * THE MANUAL LISTS THE APPLETS YOU CAN LAUNCH.  Corral, the Typing
+      Tutor and Help were missing from FORMATS.TXT's verb list, which is
+      also what a desktop icon and a [shortcut] take, so putting the
+      Typing Tutor on the desktop meant guessing its name.  Both
+      directions are gated in CI now.
+
+NEW IN 0.55  -  THE FILE PICKER RELEASE
+-----------------------------------------------------------------------
+    * A FILE PICKER, AND EVERY PATH PROMPT USES IT.  Load and Save in
+      the Scrap Box and the Sketch Pad, the Hex Peek, the Gramophone,
+      and Copy and Move in the Disk Cabinet were all bare text fields:
+      you had to know the path already and type it correctly, in a shell
+      whose whole point is that you can see your disk.  Folders first
+      with a wildcard filter on the files, arrows/PgUp/PgDn/Home/End,
+      Enter to descend or to open, Backspace to go up, and the browsed
+      folder along the foot.  GOING UP FROM A DRIVE ROOT LISTS THE
+      DRIVES, so a document can be saved to a floppy - which was simply
+      not possible before, there being no drive control and no room in
+      an 8.3 name field to type a path to one.  It leaves the caller's
+      directory exactly as it found it, drive included.
+    * THE SHELL WORKS WITHOUT A MOUSE.  A sweep for controls the mouse
+      could reach and the keyboard could not found five, three of which
+      cost you work rather than convenience.  The SCRAP BOX and SKETCH
+      PAD had New/Load/Save on the toolbar only, so you could compose a
+      document or draw an icon and have no way to keep it - F7 new, F3
+      load, F2 save in both now.  The CARDFILE's whole toolbar was
+      click-only, leaving fifteen of its sixteen cards unreachable
+      (PgUp/PgDn flip, F7 adds, F8 removes).  The CHARACTER MAP had no
+      keys at all - type a character to select it.  And the GRAMOPHONE
+      refused every key while nothing was loaded, with EJECT, the thing
+      that loads, behind that guard: E opens, F adds a folder, S stops,
+      PgUp/PgDn step the playlist.
+    * TAG FILES WITH SPACE.  The Disk Cabinet marks a set - names in
+      red, the count in the path row - and Delete, Copy and Move all
+      act on the whole set with ONE question instead of one per file.
+      Copy and Move ask for a destination FOLDER, which the file picker
+      now knows how to be; the Gramophone's + FOLDER uses it too,
+      having asked you to type a path from memory until now.
+    * YOUR FILES STOP DISAPPEARING.  New in either editor left the OLD
+      filename behind, so New-then-Save offered the name of the
+      document you had just been reading and wrote a blank page over
+      it.  A CARDFILE.DAT holding more than sixteen cards was rewritten
+      short the moment you flipped a card.  And a copy whose
+      destination was the file itself emptied it - fopen("wb")
+      truncates before the read begins.  All three are closed, and a
+      copy that would overwrite something now asks first whether it is
+      one file or twenty.
+    * A DIRECTORY TOO BIG TO LIST SAYS SO.  Both the Disk Cabinet and
+      the picker walked a directory until their table was full and then
+      dropped the rest without a word, so the file you came for was
+      missing from a list that still looked complete.  Both mark a
+      truncated listing now, and the picker's table went from 96 entries
+      - which a real DOS directory passes easily - to the Cabinet's 200.
+    * THE DISK CABINET'S LAST KEYBOARD GAPS: Move had no key while New,
+      Rename, Copy and Delete all had one (F6 now), Home and End, and
+      TYPE-AHEAD - a letter jumps to the next entry starting with it,
+      which on a FAT directory of any size is the difference between
+      finding a file and scrolling for it.
+    * A TEXT EDITOR YOU CAN CROSS.  The Scrap Box moved by one line and
+      no more; PgUp/PgDn move by the visible page and Ctrl+Home/End go
+      to the ends of the document.  The Program Drawer, given a
+      scrollbar last version, pages and jumps too.
+    * MODE 12H LOOKS FINISHED.  The title bar is a real gradient,
+      dithered navy into light blue.  Icons are SCALED rather than
+      doubled - 32x32 art shown at 64x64 turned every diagonal into a
+      staircase of 2x2 blocks, which a monitor bezel survives and a
+      round icon does not.
+    * THE BOOT LOGOTYPE STOPPED SLICING ITS OWN LOWERCASE IN HALF.  The
+      chrome ramp went nearly black at 45% of its length, which is the
+      middle of the x-height of every letter whose ink starts below the
+      cap line.
+    * THE VOXEL LANDSCAPE IS A FLYOVER.  It had been three flat slabs:
+      the camera flew between the ridges rather than over them, the
+      projection put the nearest visible slice four map cells wide, and
+      there was no distance cue at all.  Now with atmospheric haze.
+      VECTOR BALLS has actual shaded spheres, and Patience has real
+      card faces - clipped corners, a mirrored index, a centre pip - so
+      a fanned pile reads as separate cards.
+    * SETTINGS ASKS BEFORE CLOSING ON UNSAVED PREFERENCES.  It applies
+      every change live, so the desktop already looks right while
+      nothing has reached the INI - the one case where closing silently
+      is most likely to be mistaken for having saved.
+    * RELEASE/ STOPPED SHIPPING STALE DOCUMENTATION.  Its README had
+      spent three versions telling users that Alt+Tab cycles windows,
+      long after that moved to Shift+Tab, because nothing compared the
+      shipped copy to the original.  Something does now.  README.TXT
+      itself opened with 1069 lines of changelog, putting INSTALLING at
+      line 1247 of 1396; the history moved to the end.
+    * BUGS FIXED: the file picker dropped clicks outright; Enter could
+      not reach a subfolder when the name field was pre-filled;
+      browsing to a destination discarded the name you were about to
+      save under; a path typed with a drive on it was joined onto the
+      browsed folder and named nothing; and cancelling out of a browsed
+      drive left the whole shell standing on it.
+
+NEW IN 0.54  -  THE SPEED, SAFETY AND KEYBOARD RELEASE
+-----------------------------------------------------------------------
+    * FASTER WHERE IT COUNTS.  A clip rectangle now runs through every
+      drawing primitive, and a partial repaint composes ONLY the region
+      it is about to send to the screen.  A taskbar clock tick used to
+      restore all 64000 bytes of the cached desktop and rebuild every
+      window on top of it; measured under DOSBox, that same tick now
+      changes exactly 72 pixels and touches nothing else.  Solid fills
+      move through "rep stosd" and the mouse pointer is compiled to two
+      bitmask columns instead of 192 separate plotted pixels (about 1500
+      VGA port writes per arrow in 640x480).  video, font, window and ui
+      - the four modules that ARE the inner loop - are now built for
+      speed while the other 58 stay built for size.
+    * THE ARCADE TAKES THE KEYBOARD.  Fifteen slides with the arrows,
+      Tic Tac Toe and Reversi walk with the arrows and play with Enter,
+      and Minefield digs with Enter and flags with Space.  Reversi marks
+      its legal squares with a dot, the way Othello always has.  2048,
+      which was the opposite problem, now plays with the mouse as well.
+    * THE RIGHT MOUSE BUTTON WORKS INSIDE WINDOWS.  It used to reach the
+      bare desktop only.  Minefield flags with it.
+    * MINEFIELD HAS A CLOCK, and a mine counter that no longer counts
+      below zero once you plant more than ten flags.
+    * F1 ANSWERS "WHAT CAN I DO HERE" FIRST, listing the focused
+      window's own keys above the general reference, which is itself
+      rewritten into three paged sections.
+    * SETTINGS TAKES THE KEYBOARD: Tab and the arrows walk the three
+      tabs and their controls, Enter activates, S saves.  Without a
+      mouse driver the whole preferences panel used to be unreachable.
+    * YOUR WORK STOPS DISAPPEARING.  Quitting asks about an unsaved
+      Scrap Box or Sketch Pad (three separate exit paths did not).  A
+      save that FAILS no longer marks the document saved - a write-
+      protected floppy used to show an error and then throw the work
+      away at the close prompt.  Opening the Sketch Pad or Calculator a
+      second time no longer wipes what is already in it.  The Cardfile
+      writes before it clears its dirty flag, and asks before deleting a
+      card.  Copying over an existing file asks first.  Settings now
+      reads the INI from Castalia's own directory, so preferences
+      stopped coming back forgotten when it was launched from the PATH.
+    * THE PROGRAM DRAWER SCROLLS, so entries past the first screenful
+      are reachable at all.
+    * FIRST AUTOMATED TESTS.  The three file-format parsers (GIF, ICO,
+      INI) compile unmodified against a host shim and run a corpus of
+      deliberately hostile files under AddressSanitizer - 29 cases, in
+      CI.  tests/README.md is honest about the two classes it does not
+      cover.
+    * BUGS FIXED: a 16-bit overflow that corrupted the upper half of the
+      Light Show's master rainbow; 24-bit WAV playing at the wrong
+      speed and decaying into noise; a MIDI parser reading past its
+      track; the benchmark bar showing a 1-pixel green sliver where it
+      should show clipped red; floppies reporting "0 KB"; a 110 ms
+      desktop freeze the first time the Oracle's CPU page painted;
+      Breaker unable to congratulate a record because the flag was
+      never set; desktop labels overprinting the next row's icon; and
+      the About icon shipping as a black square instead of a round
+      bubble.
+    * The near-data segment went from 83% full to 74%.
+
+NEW IN 0.53  -  CORRAL, THE TYPING TUTOR, RIBBONS - AND THE GREAT AUDIT
+-----------------------------------------------------------------------
+    * CORRAL: the classic "grow a fence, trap the balls" arcade puzzle.
+      A click plants a two-armed fence (Space flips its axis); pens left
+      without a ball are bricked over; corral 75% of the floor to clear
+      the level.  A ball striking a growing arm costs a life.  Best run
+      kept in CASTALIA.HI.
+    * TYPING TUTOR: strict-entry drills with live words-per-minute, an
+      accuracy count and a persistent best WPM (85%+ accuracy to set a
+      record).  24 lines from home row to DOS folklore.  Enter restarts
+      a line, Tab skips.
+    * RIBBONS: a seventeenth Light Show effect - the office-classic
+      bouncing polylines towing a dozen rainbow afterimages.
+    * Pong and 2048 got icons of their own; Corral and the Tutor arrive
+      with theirs.  Group windows clamp to the work area and scroll (the
+      overgrown Toolbox used to swallow the taskbar's clicks).
+    * THE GREAT AUDIT: 38 real bugs fixed across every module - sheared
+      narrow GIFs, a machine-hanging truncated .FLC, phantom clicks
+      after dialogs and DOS launches, data files scattered into browsed
+      folders, three midnight-rollover bugs, Pong ball tunneling, four
+      game status-line overflows, ~80x-fast Sound Blaster playback of
+      long WAVs, a MIDI parser hang, 16-bit scroll maths in Mode 12h,
+      stale Calculator operands, and more.
+
+NEW IN 0.52  -  THE MEMORY DIET
+-------------------------------
+    * The near-data segment (one 64 KB pool for statics, stack and the
+      stdio heap) had crept to 91% full; the new CI memory gauge caught
+      it on its first run.  About 3.5 KB moved to far memory or was
+      trimmed (font face, theme palettes, editor line table, screensaver
+      text pools, copy buffer).  Invisible on screen, kinder to fopen.
+
+NEW IN 0.51  -  TWO WISHES OFF THE DREAM LIST
+---------------------------------------------
+    * COVOX and DISNEY SOUND SOURCE: the Gramophone's WAV playback now
+      drives the printer-port DACs - the Covox resistor ladder at near-
+      native rate paced by the PIT, and the Sound Source's 16-byte FIFO
+      at ~7 kHz with the classic handshake.  Declared (never probed) in
+      CASTALIA.INI: lptdac=covox|dss, lptport=1..3.  Priority: Sound
+      Blaster, then LPT DAC, then the PC-speaker floor.
+    * startlabel= renames the Start button (Start, Demarrer, Avvio...);
+      the button sizes itself to fit.  Default stays "Inicio".
+
+NEW IN 0.50  -  THE GRAMOPHONE'S ANALYZER LEARNS GRAVITY
+--------------------------------------------------------
+    * The spectrum analyzer now animates at the full ~18 Hz tick: bars
+      fall under gravity the moment their note stops, the white peak caps
+      drift down slowly, and Stop lets the skyline collapse to rest.  A
+      long track title crawls smoothly across the LCD while the music
+      plays.  Runs only while the player is focused, and repaints stop
+      once everything is at rest - an idle player costs nothing.
+
+NEW IN 0.49  -  THE THEME GRID PREVIEWS ITSELF
+----------------------------------------------
+    * A live preview strip under the Settings Theme grid: point at any of
+      the eighteen swatches and the strip paints a whole miniature screen
+      in that theme's colours (desktop, icon, window, taskbar and Start)
+      beside its name and a one-line character note; the hovered swatch
+      gets a focus ring.  Pointer elsewhere = the active theme.  Hover
+      tracking rides the idle loop and repaints only the panel.
+
+NEW IN 0.48  -  KALEIDOSCOPE AND THREE MORE THEMES
+--------------------------------------------------
+    * KALEIDOSCOPE, a sixteenth demoscene effect for the screensaver: the
+      plasma field folded into eight-fold dihedral symmetry and DAC-cycled
+      through the rainbow, turning the screen into a living mandala of
+      mirrored plasma.  Each point is reflected into one 1/8th wedge, so
+      the whole picture mirrors itself - and it animates for free off the
+      palette, costing nothing per frame but a DAC write.
+    * Eighteen colour schemes now (up from fifteen): SLATE (a cool blue-gray
+      IDE look), SAKURA (a soft cherry-blossom pink) and DOS (a deep EGA-blue
+      text-mode homage).  Each keeps readable black text and working bevels;
+      all three appear as swatches in the Settings > Theme grid.
+
+NEW IN 0.47  -  THREE NEW THEMES
+--------------------------------
+    * Fifteen colour schemes now (up from twelve): SUNSET (a dusky-plum
+      dusk), FOREST (a woodland green) and HOT DOG (the garish Windows-3.1
+      "Hot Dog Stand" homage in red and yellow).  Each keeps readable
+      black text and working bevels; all three appear as swatches in the
+      Settings > Theme grid.
+
+NEW IN 0.46  -  CORRIDOR: A RAYCAST MAZE FOR THE SCREENSAVER
+-----------------------------------------------------------
+    * CORRIDOR, a fifteenth demoscene effect: a Wolfenstein-style raycast
+      maze with textured brick walls, the indoor twin of the voxel
+      flyover.  A 16x16 grid (packed one row per int) is ray-marched per
+      column to the first wall, sampled from a 16x16 running-bond brick
+      texture and shaded by distance - near bright, far fading into the
+      ceiling as fog - between a ceiling and floor gradient, an auto-pilot
+      walking the corridors.  Pure integer maths, a Q8 camera, one march
+      and one texture divide per column.
+
+NEW IN 0.45  -  SETTINGS, REBUILT WITH TABS AND THEME SWATCHES
+-------------------------------------------------------------
+    * The Settings panel is now three tabs (Theme / Desktop / System).
+      The Theme tab shows every theme as a button with a tiny
+      window-mockup swatch in that theme's own colours; the System tab
+      gains a taskbar-clock toggle and a theme/video read-out.  The apply
+      logic is unchanged - themes cross-fade, the backdrop and wallpaper
+      repaint live, and Save still writes CASTALIA.INI.
+
+NEW IN 0.44  -  A LEANER APP SET
+--------------------------------
+    * The Light Show and Music Box apps are retired: neither is launchable
+      (gone from the Media menu, the [shortcut] pins and the verb table).
+      The idle screensaver still runs the full demoscene reel, and the
+      sound effects and startup chime are untouched - both were always
+      separate from the two retired windows.
+
+NEW IN 0.43  -  THE GRAMOPHONE GROWS A PLAYLIST
+-----------------------------------------------
+    * The Gramophone gains a scrolling playlist: a "+ FOLDER" button scans
+      a directory (DOS find-first/next) for every .WAV and .MID, up to 48
+      tracks, and lists them with the playing one lit blue.  Click a track
+      to play it, Prev/Next walk the list, and a MIDI auto-advances to the
+      next when it ends.  The window grew and the visualiser is now a
+      compact strip above the list.
+
+NEW IN 0.42  -  THE BENCHMARK, REBUILT
+--------------------------------------
+    * The three-bar Benchmark becomes a six-test suite: two integer, two
+      memory and two video kernels, each timed in the same four-tick
+      window and indexed against a 386SX/16.  The six fold into one big
+      CASTALIA SCORE with a machine-class verdict.  Colour-coded bars
+      CHARGE UP when a run finishes; Enter or a click runs it again.
+
+NEW IN 0.41  -  THE SYSTEM INSPECTOR, REBUILT
+---------------------------------------------
+    * The System Panel and System Inspector are merged into one live
+      dashboard: a sunken hardware readout (CPU, coprocessor, DOS, video,
+      mouse - each with a status LED), a live oscilloscope over an LED
+      clock, memory/disk gauges that CHARGE UP on open, and a BIOS
+      equipment strip (COM/LPT ports, floppy drives, game port).  It
+      animates ~6x a second via the partial-present fast path.  The
+      "sysinfo"/"system"/"inspect" verbs all open it.
+
+NEW IN 0.40  -  A FOURTEENTH LIGHT SHOW EFFECT
+----------------------------------------------
+    * VOXEL LANDSCAPE.  A Comanche-style terrain flyover: a procedurally
+      generated 128x128 world (rolling hills, lakes, sandy shores, rock
+      and snow-capped ranges) ray-marched front-to-back with a per-column
+      y-buffer, under a vertical sky gradient, the camera banking and
+      bobbing as it flies.  Integer Q8 maths off the shared sine table,
+      one divide per slice, a level-of-detail march for the far ground -
+      it flies on a bare 386SX.  Fourteen effects now cycle in the show.
+
+NEW IN 0.39  -  A THIRTEENTH LIGHT SHOW EFFECT
+----------------------------------------------
+    * WIREFRAME.  A 3D wire-cube tumbling on all three axes over a quiet
+      starfield, its twelve edges lit in a flowing rainbow and its eight
+      corners drawn as glowing spheres - larger and brighter on the near
+      face, dim on the far one, so a bare frame of lines reads as solid
+      depth.  Pure integer maths off the shared sine table and a clamped
+      Bresenham, so it flies on a bare 386SX.  Thirteen effects now
+      cycle in the Light Show and the idle screensaver.
+
+HIGHLIGHTS OF 0.38  -  CASTALIA 92: THE WINDOWS-95 CUT (RC)
+-----------------------------------------------------------
+    * REBRANDED TO CASTALIA 92 - splash, Start menu, About box, window
+      titles and the Light Show scroller - with the look kept as close to
+      Windows 95 as the palette allows.
+    * A REAL START BUTTON.  The Vista-style orb is retired; the taskbar
+      now carries a proper Windows-95 Start button - a crisp, black-
+      outlined pixel-art castle beside an "Inicio" caption, in a raised
+      frame that sinks while the Dominus menu is open.
+    * PIXEL-ART ICONS.  A brand-new My Computer (a beige CRT on a desktop
+      case), plus redrawn, fully-outlined Folder, Toolbox, Arcade,
+      Gramophone, Terminal, System, Info, Drawer, Disk, Oracle, Notepad
+      and Gauge icons.
+    * A TIDIER DESKTOP.  Just four icons now - My Computer, Arcade,
+      Toolbox and Gramophone - in neat top-to-bottom, left-to-right
+      columns.
+    * A REBUILT ABOUT BOX.  The banner shows the real desktop wallpaper
+      through the window with the embossed marque over it, and a fuller
+      identity block beneath.
+    * A BRUTAL ORACLE BENCHMARK.  Six sub-tests (ALU, integer hash, memory
+      copy, memory read, video fill, video lines), each an x-index against
+      a 386SX/16, folded into one composite ORACLE SCORE with a machine-
+      class rating.
+    * A RICHER DESKTOP GRADIENT and a calmer, lighter-repainting About.
+    * SIX NEW WALLPAPERS - BLISS, COSMOS, DUNES, NIGHT (the castle by
+      moonlight), REEF and PEAKS join CASTLE and SUNSET, each an
+      original 320x200 GIF at 3-7 KB; Settings' "Paper" row is now a
+      < name > cycler through every shipped tile and picture.
+    * THE PICTURE SHOW - a full-screen GIF gallery in the Toolbox with
+      a palette dissolve between slides; browses the wallpapers and any
+      .GIF you drop in ASSETS\ICONS.
+    * FIND ON THE START MENU (above Run..., the authentic order), and a
+      fix for GIF wallpapers losing their colours after the Light Show,
+      the screensaver or the Cinema.
+    * FIND FILE - the classic Win95 search accessory in the Toolbox:
+      an 8.3 wildcard sweeps the whole drive breadth-first and lists
+      name, size and folder, with the hourglass up while it works.
+    * SORTABLE DISK CABINET - a toolbar button (or F3) cycles Name /
+      Ext / Size / Date ordering; directories stay alphabetical.  The
+      scroll thumb is draggable now, and the double-click associations
+      (text->Scrap Box, audio->Gramophone, ...) are configurable from
+      the INI's new [assoc] section.
+    * A SELF-FILLING PROGRAM DRAWER - [drawer] scan=DIR adds every
+      EXE/COM/BAT in a directory to the drawer's grid automatically.
+    * A GRAPHICAL INSTALLER - source builds now also produce
+      INSTALL.EXE, a Castalia-styled setup wizard; INSTALL.BAT stays
+      the zero-tools path for this binary bundle.
+    * A TWELFTH THEME, REDMOND (the pure-VGA primaries scheme), and
+      SYSTEM EVENT SOUNDS - open/close/minimize/restore blips and the
+      dialog attention ding, all honouring the sound toggle.
+    * REAL DOCS - docs\GUIDE.TXT (user guide) and docs\FORMATS.TXT
+      (frozen file formats); INSTALL.BAT ships the GIF/ICO assets and
+      "INSTALL <dir> PATH" can append the PATH line to AUTOEXEC.BAT.
+
+HIGHLIGHTS OF 0.36
+------------------
+    * A SPECTACULAR ABOUT BOX.  A living night scene - graded sky, a
+      cratered moon, forty twinkling stars, a shooting star, the castle
+      on its hill - under a 2x embossed marque, richer facts, and a new
+      History tab that rolls the milestones from 0.25 to today.
+    * THREE NEW PROGRAMS.  PONG (mouse-driven paddle, spin, speed-up,
+      first to seven, against a beatable AI) and 2048 (the tile-merging
+      puzzle in sixteen bytes of state) join the Arcade; a month
+      CALENDAR (today ringed, weekends red, month/year navigation) joins
+      the Toolbox and the Documents menu.
+    * BREAKER GROWS LEVELS.  Six cycling wall shapes, two-hit mortar
+      bricks from level 3, a faster ball every third level, a bonus ball
+      per cleared wall, and falling power-up capsules (wider paddle, an
+      extra ball, a slower ball).
+    * PERSISTENT HIGH SCORES.  Breaker and 2048 keep your best across
+      sessions in CASTALIA.HI.
+    * SKETCH PAD TOOLS.  Flood FILL and a two-click Bresenham LINE join
+      the pen; the active tool shows pressed-in on the toolbar.
+    * A MAXIMIZE ANIMATION.  Maximize/restore flies the frame outline
+      between the old and new geometry, like the minimize zoom.
+    * A NEW START BUTTON: THE CASTALIA ORB.  The taskbar Start button now
+      wears a glossy crystal orb with the castle at its heart - a
+      spherical highlight, a dark rim, a gold keep - with no label and no
+      button frame, Windows-Vista style.  It is drawn procedurally, so it
+      stays crisp at any size and recolours with the theme.
+    * A SKINNED GRAMOPHONE.  The player is rebuilt in the spirit of the
+      classic mid-90s MP3 player: a green LCD strip with the elapsed /
+      total time and a scrolling title, a full spectrum analyzer (green-
+      to-red bars with falling peak caps) for MIDI or an oscilloscope for
+      WAV, a device/quality line, a transport row (prev, play, pause,
+      stop, next, EJECT to load a file in place, REPEAT to loop) and a
+      click-to-seek position slider.
+    * SHARPER ICONS.  The Gramophone's desktop icon becomes a matching
+      mini-player; the folder and floppy icons gain a glassy sheen.
+    * MORE WINDOWS-95.  Every Start-menu entry gains a little icon on its
+      left; the menu's brand stripe becomes a vertical gradient banner
+      with embossed lettering; window caption buttons get the genuine
+      Win95 maximize / restore / minimize / close glyphs; and Shut Down
+      plays the full sequence - the blue "Please wait while your computer
+      shuts down..." screen, then the amber "It's now safe to turn off
+      your computer."
+    * DESKTOP DETAIL.  Every window wears the Castalia crest as its
+      title-bar system icon; the taskbar grows a system tray with a
+      speaker (slashed red when muted, and click it to toggle the sound);
+      and a fresh desktop shows the famous "Click here to begin" balloon
+      pointing at the Start orb.
+    * A BLUE-SCREEN EASTER EGG.  Run "bsod" (or "crash") for the classic
+      "A fatal exception 0E has occurred..." panel; any key returns.
+    * AN HOURGLASS WAIT CURSOR.  The pointer becomes the classic hourglass
+      while a slow job runs (hardware probe, benchmark, drive scan).
+    * PER-APP TITLE ICONS AND WIN95 GESTURES.  Every window's title bar
+      carries its own application badge (folder, page, die, note, monitor,
+      clock, calculator, paint box - or the crest).  Double-click a title
+      bar to maximize/restore; click the title icon to shade, double-click
+      it to close - the authentic system-icon gestures.
+
+HIGHLIGHTS OF 0.35
+------------------
+    * A FULL GENERAL-MIDI VOICE BANK.  The OPL/AdLib FM synth grew from
+      six shared voices to EIGHTEEN: a distinct timbre for every one of
+      the sixteen General-MIDI families - piano, chromatic percussion,
+      organ, guitar, bass, strings, ensemble, brass, reed, pipe, synth
+      lead, pad, effects, ethnic, percussive, sound-fx - plus dedicated
+      electric-piano and synth-bass patches.  A MIDI's program changes
+      now pick the right family, so a piano no longer sounds like a
+      flute and a bassline like a lead.  It is still pure register data:
+      zero cost on the 386, works on any AdLib-compatible chip.
+
+HIGHLIGHTS OF 0.34
+------------------
+    * MY COMPUTER, WITH DRIVE ICONS.  Opening My Computer no longer drops
+      you straight into a file list - it opens on the Windows-95 root:
+      every drive DOS can see drawn as a big icon ("Local Disk (C:)",
+      "Floppy (A:)") in a grid you can click or arrow around.  Double-
+      click a drive (or press Enter) to browse it; the toolbar "Up" - or
+      Backspace - from a drive's root climbs back to the drive icons.
+    * The folder view is unchanged: the same toolbar, drive strip, path
+      and scrolling list, one step in from the drives.
+
+HIGHLIGHTS OF 0.33
+------------------
+    * WINDOWS-95 MESSAGE BOXES.  Every dialog - Run, Rename, Delete, the
+      Gramophone and Hex Peek prompts, the applet Save/Load boxes - now
+      behaves exactly like a 1995 message box.  The OK / Yes button wears
+      the heavy black DEFAULT RING; the buttons PRESS IN under the mouse
+      and only fire when you let go over them; a dotted focus rectangle
+      follows Tab and the arrow keys; and every box carries a working
+      close (X) box in its gradient title bar.  Enter takes the focused
+      button, Esc cancels - the muscle memory just works.
+
+HIGHLIGHTS OF 0.32
+------------------
+    * A WINDOWS-95 START MENU THAT CASCADES.  The Start ("Dominus") menu
+      is now a single tidy column with fly-out submenus, exactly like the
+      real thing: Programs, Documents, Settings and Media each carry the
+      little right-arrow and open a child column on hover.  Programs holds
+      your pinned [shortcut] items above the Program Drawer and an MS-DOS
+      "Command Room" prompt; Documents gathers the Scrap Box, Cardfile,
+      Agenda and Hex Peek; Settings collects the control panels; Media the
+      Gramophone, Cinema and Light Show.  A vertical "CASTALIA95" brand
+      stripe runs down the left edge.
+    * IT NEVER RUNS OFF-SCREEN.  A submenu that would fall past the right
+      edge flips to the left of its parent; one too tall for the 320x200
+      screen wraps into balanced columns - the same way the genuine
+      Programs menu spills sideways when you install a lot of software.
+    * Still just a pop-up: opening, hovering and cascading only ever
+      repaint the menu's own footprint, so it stays instant on a 386SX.
+
+HIGHLIGHTS OF 0.31
+------------------
+    * THE WINDOWS-95 LOOK, DIALLED IN.  The default "Classic" theme is now
+      pixel-accurate 1995: the teal desktop, the silver (C0C0C0) 3D face,
+      a PURE-WHITE highlight and 808080 shadow for crisp, snappy bevels,
+      navy title bars and black text - exactly the Redmond palette.
+    * ICONIC TITLE BARS.  Active windows wear the famous navy->sky-blue
+      title sweep (the Win95-Plus / Win98 gradient): a solid navy on the
+      left blooming into bright blue on the right, with crisp white text.
+      Inactive windows fall back to a flat gray bar, just like the era.
+    * Everything else - the raised toolbar buttons, sunken lists, the gray
+      taskbar with its Start button and sunken clock - now reads as the
+      real thing.  Fast as ever (it is only a palette): the 386SX never
+      feels it.
+
+HIGHLIGHTS OF 0.30
+------------------
+    * DRUMS.  MIDI channel 10 now plays as real percussion on the OPL
+      chip's rhythm mode - bass drum, snare, hi-hat, tom and cymbal - so a
+      song has a beat, not just melody and chords.  Six melodic FM voices
+      plus the five drums.
+    * CLEARER WAV.  A Sound Blaster now plays a WAV near its NATIVE sample
+      rate (up to the buffer's limit) instead of the old fixed ~4 kHz, so
+      digitised audio is far crisper.  (The PC-speaker path is unchanged.)
+    * A drum-and-melody demo, ASSETS\MEDIA\DRUMBEAT.MID.
+
+HIGHLIGHTS OF 0.29
+------------------
+    * FM INSTRUMENTS.  The OPL music now uses a small General-MIDI voice
+      bank instead of one organ for everything: the Gramophone follows a
+      MIDI file's program-change events per channel and gives each note the
+      matching FM patch - piano, organ, strings, bass, brass or lead - so
+      a piano part sounds like a piano and a bass line like a bass.  The
+      instrument travels with its note right into the chord, so different
+      parts struck together each keep their own timbre; the chip is only
+      re-programmed when a voice's instrument actually changes, so it stays
+      cheap.  Drop in any MIDI and hear it come alive.
+
+HIGHLIGHTS OF 0.28
+------------------
+    * FM MUSIC.  A MIDI file now plays as real, POLYPHONIC, instrument-
+      timbred music on the OPL2 (AdLib / Sound Blaster) FM chip instead of
+      a one-voice square wave on the PC speaker.  A from-scratch OPL driver
+      (register pokes to 388h/389h, nine voices) turns each MIDI file into
+      a stream of CHORDS - notes struck together sound together - and the
+      Gramophone's piano roll now stacks a bar per voice so you can see the
+      harmony.  No FM chip?  It still plays the top line on the PC speaker.
+    * A REAL STARTUP CHIME.  When sound is on and an FM chip is present,
+      Castalia greets you with a bright polyphonic arpeggio that settles
+      into a major chord - not a single speaker beep.
+    * The Gramophone names its synth ("OPL FM synth (polyphonic)"), and the
+      System Oracle's Sound line reports the FM chip (e.g. "Sound Blaster
+      16 +OPL FM").
+    * Verified: the piano roll shows the triads of a chord test as stacked
+      bars, and a real capture of the emulated chip's output has both the
+      chime and the music coming out of the FM synth.
+
+HIGHLIGHTS OF 0.27
+------------------
+    * SOUND BLASTER DIGITAL AUDIO.  The Gramophone now plays a WAV as
+      real digital sound through a Sound Blaster's DAC instead of the PC
+      speaker.  Castalia finds the card from the BLASTER environment
+      variable (or by probing the usual ports), resets the DSP and reads
+      its version, then streams the samples with a single-cycle 8-bit DMA
+      transfer - the card's IRQ masked at the PIC so no interrupt handler
+      is needed and nothing is left hooked on exit.  No Sound Blaster?  It
+      falls straight back to the PC-speaker pulse-width burst, so nothing
+      breaks on a bare machine.
+    * The Gramophone shows its output device ("Sound Blaster 16", or "PC
+      speaker"), and the System Oracle's Overview lists the card, its base
+      port, on a new "Sound" line.
+    * Verified end to end: the card is detected, and a real capture of the
+      emulated card's output shows the digitised sweep coming out of the
+      DAC - genuine PCM, not a speaker click.
+
+HIGHLIGHTS OF 0.26
+------------------
+    * THE CINEMA - a full-motion FLI/FLC video player, from scratch.
+      Castalia now plays Autodesk Animator "flic" animations (.FLI /
+      .FLC) full-screen in 256 colours: the complete chunk set (COLOR_256
+      / COLOR_64 palettes, BYTE_RUN RLE, the FLI and FLC deltas, BLACK and
+      FLI_COPY).  Open the Cinema from the Toolbox to watch the bundled
+      demo, or double-click any .FLI/.FLC in My Computer.  Any key or a
+      click returns you to the desktop - and the wallpaper's colours come
+      back exactly, because the player saves and restores the palette
+      window a GIF backdrop lives in.  Win95 needed extra software to play
+      video; Castalia does it out of the box, on a 386.
+    * A BUNDLED DEMO - CINEMA.FLC in ASSETS\MEDIA: a colour-cycling
+      plasma with the CASTALIA/386 wordmark shimmering through it (64
+      frames, palette animation - the classic demoscene trick).
+    * Mode 13h (256 colours) only; in the 640x480 16-colour mode the
+      Cinema shows a short notice instead.
+
+HIGHLIGHTS OF 0.25
+------------------
+    * THE CASTLE ON THE START BUTTON IS NOW A REAL .ICO.  The Castalia
+      castle logo is loaded from ASSETS\ICONS\CASTLOGO.ICO (a genuine
+      Windows icon) and scaled down onto the taskbar Start button, so the
+      brand mark is the same crest everywhere.  If the icon is missing the
+      hand-drawn badge still stands in.
+    * A NEW DEFAULT WALLPAPER - "CASTLE".  A castle-on-an-island at dusk
+      with a flying pennant, the Castalia artwork, now greets you on the
+      desktop (ASSETS\ICONS\CASTLE.GIF, 320x200, 128 colours).  It shares
+      the screen with the 16-colour Windows-style UI exactly like the old
+      SUNSET backdrop - the picture's palette sits in the free DAC window
+      16..191, the UI and gradients are untouched.  SUNSET is still there
+      if you prefer it (set wallpaper= in CASTALIA.INI).
+    * A NEW ENGINE HELPER, icon_draw_box(), nearest-neighbour scales any
+      32x32 icon into a box of any size (down or up) as equal-colour run
+      fills - which is what puts a 32x32 crest onto a 10-pixel button.
+
+HIGHLIGHTS OF 0.24
+------------------
+    * A CASTLE LOGO for Castalia: on the taskbar Start button (badge +
+      name, Win95-style) and big on the About box.
+    * A SPECTACULAR ABOUT: five tabs (About / Credits / System / Built
+      / License) with a twinkling night-sky logo, a rolling credits
+      scroller (created by Dave Abellan, licensed through Tombatossals
+      Softworks LLC), live system facts, the build ledger (18,000+
+      lines, 50 modules, 0 third-party libs) - and easter eggs.
+
+HIGHLIGHTS OF 0.23
+------------------
+    * GIF WALLPAPER.  wallpaper= now reads a full GIF picture (complete
+      LZW decode) and shows it as the desktop background.  Its palette
+      loads into the free DAC window 16..191 so the 16-colour UI (slots
+      0..15) and gradient ramps (192..255) are untouched - a 128-colour
+      photo and the Windows-style UI share the screen with no clash.
+      A dusk-castle SUNSET.GIF ships in ASSETS\ICONS and is the new
+      default backdrop.  Mode 13h only.  Composed into the cache, so
+      it is free per frame.
+    Next: an FLI/FLC video player.
+
+HIGHLIGHTS OF 0.22
+------------------
+    * REAL WINDOWS .ICO ICONS.  iconN_icon= now reads genuine .ICO
+      files (1/4/8-bpp + 24/32-bpp, AND mask, any size scaled to
+      32x32), mapping each colour to the nearest theme slot so the art
+      recolours with the theme.  A Win95-style set ships in
+      ASSETS\ICONS and the default desktop wears it.
+    * The file browser is now "MY COMPUTER", with a monitor-and-tower
+      icon - the Windows-95 look this project chases.
+    Next: GIF wallpaper, then an FLI/FLC video player.
+
+HIGHLIGHTS OF 0.21
+------------------
+    * THE GRAMOPHONE - a WAV / MIDI player on nothing but the PC
+      speaker.  WAV plays as digitised audio by pulse-width modulation
+      with a live oscilloscope of the real samples; MIDI is parsed
+      (SMF: delta times, running status, tempo) and its top-voice
+      melody plays under a scrolling piano-roll.  Double-click a .WAV
+      or .MID in the Disk Cabinet, or Run "play".  Samples ship in
+      ASSETS\MEDIA.
+
+HIGHLIGHTS OF 0.20
+------------------
+    * AGENDA - a persistent to-do list saved to AGENDA.TXT (plain
+      "[x] ..." lines any editor can read).  Tick items off with a
+      click or SPACE.
+    * HEX PEEK - a hex file viewer with on-demand paging (a 500 MB
+      file scrolls as fast as a tiny one).
+    * EVERY FILE OPENS: the Disk Cabinet now activates anything -
+      programs run, documents open in their applet, and everything
+      else lands in Hex Peek.
+    * FASTER: popping/closing the Dominus menu blits only the menu
+      and taskbar (not the whole screen), and dropping a dragged
+      desktop icon swaps bitmaps in memory instead of re-reading disk.
+
+HIGHLIGHTS OF 0.19
+------------------
+    * EVERY game and tool now has its OWN icon - 16 new pieces of
+      procedural art (the mine, the snake, the ace of spades, the
+      all-seeing eye...).  No more identical dice in the Arcade.
+    * WALLPAPER COLLECTION: CLOUDS, STARS, DIAMOND and CIRCUIT tiles
+      ship in ASSETS/ICONS; pick one from Settings' new Paper row,
+      save it to the INI, done.  Theme-aware and free at runtime.
+    * The Dominus menu wears a Windows-95-style vertical CASTALIA
+      stripe, and the shell speaks: little PC-speaker blips on open,
+      close, minimize, maximize and the launcher (Sound toggles all).
+
+HIGHLIGHTS OF 0.18
+------------------
+    * THE SYSTEM ORACLE: an AIDA-class diagnostic suite, 1991-style.
+      CPU class/CPUID/FPU, true XMS extended memory, EMS pages, VESA
+      and video RAM, disks and geometry, ports, BIOS - all probed
+      from the metal - plus the classic benchmark bars racing THIS
+      PC against the PC/XT, AT 286 and 386SX/16.  In the Toolbox.
+    * MAXIMIZE: the full [_][^][X] title-bar set on every window.
+    * INSTANT RAISES: focusing a background window now repaints only
+      what actually changed - two windows and the taskbar.
+
+HIGHLIGHTS OF 0.17
+------------------
+    * KEYBOARD DESKTOP: arrows walk the icon grid, ENTER launches -
+      the shell is fully usable with no mouse driver at all.
+    * WINDOW MANAGEMENT: F5 cascades, F6 tiles, double-click an empty
+      spot of the taskbar for "show desktop", click the taskbar clock
+      to open the Clock, and windows REOPEN where you left them.
+    * FASTER: fully covered windows are no longer composed at all
+      (occlusion culling) - stacking windows costs nothing extra.
+
+HIGHLIGHTS OF 0.16
+------------------
+    * WALLPAPER: tile any 32x32 .ICN across the desktop (wallpaper= in
+      [desktop]).  Theme-aware, transparent-capable, and composed once
+      into the cached background - so it is free while you work.
+    * SETTINGS SAVES NOW: a screensaver delay row and a [Save to INI]
+      button that rewrites CASTALIA.INI line by line, preserving every
+      comment and shortcut you have in it.
+    * MOVABLE ICONS: drag a desktop icon onto another and they swap
+      slots.  SPACE deals the stock in Patience.
+
+HIGHLIGHTS OF 0.15
+------------------
+    * PATIENCE: full klondike solitaire, with the winning cascade.
+    * SETTINGS: click a theme and the desktop cross-fades into it live;
+      switch backdrops; toggle animations/sound.  Plus LIGHTS OUT.
+    * Much faster: the composed desktop background is cached (scene
+      rebuilds are one 386 dword copy), and clicks repaint only what
+      they actually touch instead of the whole screen.
+
+HIGHLIGHTS OF 0.14
+------------------
+    * Two new games (Quadrix, the falling-blocks game, and Depot, a
+      box-pushing warehouse puzzle) and two new tools (a Stopwatch
+      with lap + countdown, and Eyes that follow your pointer).
+    * Resizable windows (drag the corner grip), right-click opens the
+      Dominus menu at the pointer, F1 opens Help, and the Disk Cabinet
+      opens .TXT files in the Scrap Box and .ICN files in Sketch Pad.
+    * A twelfth Light Show effect: FIREWORKS.
+
+HIGHLIGHTS OF 0.13
+------------------
+    * Palette fades on boot, program launch/return, the Light Show,
+      the screensaver and exit; window zooms with motion trails that
+      fly out of what you clicked and into the window's own taskbar
+      button; the Dominus menu unfurls (and wraps into columns when
+      long); double-click a title bar to SHADE a window.
+    * Two new Light Show effects (sine scroller, twister) - eleven now.
+    * A live taskbar clock, and a much faster drawing engine (386
+      dword presents, one-pass planar fills, scanline text) - the
+      640x480 mode gains the most.
+    * An idle desktop now HALTS the CPU between interrupts: ~0% CPU
+      when nothing is happening, instant wake on input.
+    * Assorted fixes (see README.TXT "NEW IN 0.13").
+
+This folder is a complete, compiled, ready-to-run build of CASTALIA/386.
+Copy it to your 386SX (or any DOS PC) and either run the installer or run
+the program straight from here - no compiler needed.
+
+WHAT IS IN THIS FOLDER
+----------------------
+    CASTALIA.EXE ......... the program (16-bit real-mode DOS executable)
+    CASTSHEL.BAT ......... wrapper that adds free-memory game launching
+    CASTALIA.INI ......... configuration (theme, icons, launcher entries)
+    INSTALL.BAT .......... optional installer (copies into C:\CASTALIA)
+    README.TXT ........... the full manual
+    ASSETS\ICONS\*.ICN ... sample 32x32 bitmap icons
+    ASSETS\THEMES\ ....... (themes are built in; this is for your own notes)
+
+QUICK START
+-----------
+  Option A - install to the hard disk:
+      Copy this whole folder to the PC, then from inside it run:
+          INSTALL
+      (or  INSTALL D:\APPS\CAST  to choose another location), then:
+          C:
+          CD \CASTALIA
+          CASTALIA
+
+  Option B - run in place:
+      From this folder, just type:
+          CASTALIA
+      or, to allow big games to unload Castalia for full memory:
+          CASTSHEL
+      (then mark the game's [shortcut] in CASTALIA.INI with freemem=true).
+
+REQUIREMENTS
+------------
+    * Intel 386SX or better
+    * At least 1 MB of RAM  (checked at start-up; Castalia refuses to run
+      on less and says so).  Load HIMEM.SYS so the megabyte is visible.
+    * VGA display adapter   (Mode 13h 320x200, or Mode 12h 640x480 - set
+                             video= in CASTALIA.INI)
+    * MS-DOS 6.22 or FreeDOS
+    * A Microsoft-compatible mouse driver (MOUSE.COM / CTMOUSE.EXE) is
+      recommended but optional - the desktop is usable from the keyboard.
+
+BUILD PROVENANCE
+----------------
+    Toolchain : Open Watcom C/C++  (wcc / wlink)
+    Target    : DOS, 16-bit real mode, medium memory model (-mm)
+    CPU       : 386 instruction scheduling (-3)
+    Optimise  : size (-os), maximum warnings (-wx) - builds with zero
+                warnings.
+    To rebuild from source see BUILD.TXT in the project root (wmake, or
+    BUILD.BAT under Open Watcom on DOS).
+
+Enjoy.  -  Tombatossals Softworks, Anno MMXXVI (in the spirit of MCMLXXXIX)
+======================================================================

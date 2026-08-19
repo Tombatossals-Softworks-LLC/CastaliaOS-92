@@ -1,0 +1,84 @@
+======================================================================
+ CASTALIA 92  -  THE GUIDED TOUR
+======================================================================
+(Everything below ships in the box.  Nothing is a mock-up; the shots
+in IMAGES\ are rendered from the shell's own drawing code.)
+
+THE DESKTOP
+    * Overlapping windows: drag, resize, minimize, maximize, shade
+      (roll-up), cascade.  Double-click a title bar to maximize, just
+      where your muscle memory expects it.
+    * A taskbar with one button per window, a tray speaker icon, a
+      live clock - and the Start button ("Inicio"; the studio is
+      Spanish and so is the castle on the crest).
+    * A cascading Start menu with flyout submenus and per-item icons,
+      real message boxes, caption-button glyphs, a first-run "Click
+      here to begin" balloon and a proper shutdown sequence.
+    * Desktop icons you can drag between grid slots, backed by real
+      .ICO loading: genuine Windows 95 icon files render mapped to
+      the theme palette.  Or draw your own in the built-in editor.
+    * Wallpapers: eight original 320x200 GIF pictures (a castle, a
+      reef, dunes, a night sky...) plus tiling papers, or a plain,
+      dignified teal.
+
+THE PROGRAMS (a selection of the 30+)
+    * Disk Cabinet - the file manager: browse, launch, copy, rename,
+      delete, with drive bar and scrollable listing.
+    * Scribe's Desk - the text editor, with find and word wrap.
+    * Sketch Pad - paint; doubles as the icon editor (save as .ICN,
+      point a desktop icon at it, done).
+    * Gramophone - the media player: WAV as real digital audio on a
+      Sound Blaster, a Covox Speech Thing or a Disney Sound Source on
+      the printer port (or pulse-width tricks on the bare PC speaker),
+      polyphonic MIDI with General-MIDI voices on an AdLib/OPL2 FM
+      chip.  LCD strip with a crawling title, spectrum analyzer with
+      gravity and peak caps, folder playlists, seek bar, repeat.
+    * System Inspector - a live animated dashboard: hardware readout
+      with status LEDs, an oscilloscope, an LED clock, charging
+      memory/disk gauges and a BIOS equipment strip.
+    * Benchmark - a six-test suite (integer, memory, video kernels)
+      indexed against a 386SX/16, with a composite CASTALIA SCORE
+      and a machine-class verdict, drawn as animated bars.
+    * Plus: calculator, calendar, agenda (persistent to-do list),
+      hex viewer, character map, Mandelbrot/Julia explorer with
+      click-to-zoom, stopwatch, Colors board, Find File, Picture
+      Show (GIF viewer), Cinema (FLI/FLC animation player), Eyes
+      (they follow the pointer; they blink; they judge).
+
+THE GAMES (all thirteen, all with sound effects and high scores)
+    Minefield (minesweeper), Patience (klondike with the winning
+    cascade), Reversi, Serpent (snake), Breaker (breakout), Quadrix
+    (falling blocks), Depot (sokoban, ten verified floors), Echo
+    (sound-memory), Lights Out, Fifteen Puzzle, Tic Tac Toe, Pong
+    and 2048.
+
+THE THEMES
+    Eighteen complete colour schemes, each restyling every pixel of
+    chrome: classic, penumbra, bureau, winsteel, moncloa, workbench
+    (an Amiga homage), ocean, rose, midnight, amber, matrix, redmond,
+    sunset, forest, hotdog (loud, period, beloved), slate, sakura and
+    dos.  The Settings panel shows every theme as a window-mockup
+    swatch, and pointing at one paints a live miniature screen in its
+    colours before you commit.  Themes cross-fade when applied, and a
+    [colors] section in the INI lets you override any single slot.
+
+THE SCREENSAVER
+    After a configurable idle delay the desktop dissolves into a reel
+    of sixteen demoscene effects, cross-fading one to the next:
+    plasma, copper bars, warp starfield, fire, the Boing ball, a
+    rotozoomer, a tunnel, matrix rain, tumbling vector balls, a giant
+    sine scroller, a twister column, fireworks, a rainbow wire-frame
+    cube, a Comanche-style voxel terrain flyover, a Wolfenstein-style
+    textured raycast corridor, and a DAC-cycled kaleidoscope.  All of
+    it is fixed-point integer mathematics on the shared sine table -
+    no FPU, no lookup cheats beyond what 1992 would bless.
+
+THE PLUMBING (the parts power users ask about)
+    * CASTALIA.INI: theme, video mode, wallpaper, screensaver delay,
+      sound, launcher shortcuts, per-slot colour overrides - all in
+      one commented file, all documented in docs/FORMATS.TXT.
+    * Free-memory launch: mark a shortcut freemem=true and Castalia
+      unloads itself completely to give a big DOS game every last
+      kilobyte, then returns when the game exits.
+    * An installer (INSTALL.EXE) with progress bar and PATH option.
+    * Persistent high scores, agenda and settings survive reboots.

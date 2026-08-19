@@ -1,0 +1,302 @@
+======================================================================
+ CASTALIA/386 - BUILD.TXT
+ How to compile, test in DOSBox, and deploy to real DOS hardware.
+======================================================================
+
+1. TOOLCHAIN
+------------
+PRIMARY (and the one this project is written and verified for):
+
+    Open Watcom C/C++ 2.0  (the "Open Watcom V2" fork)
+    https://github.com/open-watcom/open-watcom-v2
+
+    The classic Open Watcom 1.9 release also builds the tree clean
+    (zero warnings at -wx -we) and is what the committed 0.13 release
+    binary was cross-compiled with, so either generation works.
+
+Why Open Watcom:
+    * Free, open source, actively maintained, runs on modern PCs and can
+      cross-compile DOS binaries from Windows/Linux as well as build
+      natively under DOS.
+    * Excellent 16-bit real-mode code generation with a 386 target.
+    * Ships wcc (compiler), wlink (linker), wmake (make) and the 16-bit
+      DOS C libraries this project needs (INT-call helpers in <i86.h>,
+      DOS helpers in <dos.h>, far memory routines, etc.).
+
+Build settings used:
+    Target ....... DOS, 16-bit real mode      (-bt=dos)
+    Memory model . medium                      (-mm)
+                   far code (the project is bigger than 64 KB of code),
+                   near data (fast on a 386SX); the few hardware buffers
+                   that must be far - VGA and the back buffer - are
+                   declared 'far' explicitly in video.c.
+    CPU .......... 386                          (-3)
+    Optimise ..... for size                     (-os)
+    Warnings ..... maximum AND fatal, tree builds clean (-wx -we)
+    Stack ........ 8 KB  (link option stack=8192; we call BIOS/DOS
+                   interrupts, so a little headroom is prudent)
+
+Other toolchains (evaluated, not used):
+    * Borland Turbo C / Turbo C++ : also a fine 16-bit DOS choice and
+      the source is close to compatible (it uses the 'far' keyword and
+      int86/INT-style calls).  The main porting work would be the
+      header names (<i86.h> vs <dos.h>) and the _dos_* helper names.
+    * DJGPP : a 32-bit protected-mode GCC.  It produces lovely flat-
+      memory code BUT needs a DPMI host (CWSDPMI) at run time, which is
+      an extra dependency and is heavier on a 4 MB 386SX.  Kept in mind
+      as a possible 32-bit future target, not the MVP toolchain.
+    * Pacific C / Allegro : Allegro is a game library (overkill here);
+      Pacific C is fine for small programs but less suited to a multi-
+      module DOS GUI.  Not used.
+
+2. BUILDING
+-----------
+Make sure the Open Watcom environment variables are set (the installer
+provides OWSETENV.BAT on DOS/Windows; on Unix, source owsetenv.sh or set
+WATCOM, PATH and INCLUDE yourself).
+
+From the project root (the directory that contains this file):
+
+    Option A - make (incremental, recommended):
+        wmake
+
+    Option B - one step, no make:
+        BUILD            (runs BUILD.BAT)
+
+    Option C - clean:
+        wmake clean
+
+Either way the result is  CASTALIA.EXE  in the project root.  It is a
+plain MS-DOS MZ executable of about 34 KB.
+
+Cross-building from Windows or Linux works identically: the same wmake
+and the same wcc/wlink produce the same DOS .EXE.  (On a case-sensitive
+host, note that wcc emits .o by default; the Makefile forces .obj with
+-fo= so the output is identical everywhere.)
+
+3. TESTING IN DOSBOX (do this first)
+------------------------------------
+DOSBox or DOSBox-X is the quickest way to try the build.
+
+    1. Mount the project directory as a drive, e.g.:
+           mount c  C:\path\to\CASTALIA
+           c:
+    2. (Optional) make sure a mouse is captured - click into the DOSBox
+       window.  DOSBox provides an INT 33h mouse, so the cursor works
+       out of the box.
+    3. Run:
+           CASTALIA
+    4. You should see the splash, then the teal desktop with icons, a
+       taskbar, the "Castalia" launcher and a clock.
+
+DOSBox tips:
+    * In dosbox.conf set  machine=svga_s3  or  vga  (Mode 13h works on
+      any of the VGA machine types).
+    * core=normal and cycles=3000-6000 roughly imitates a 386SX if you
+      want to feel the real performance envelope; cycles=auto is fine
+      for just trying it.
+    * If the mouse feels too fast or too slow, adjust DOSBox's mouse
+      sensitivity, or change MOUSE_DIV at the top of SRC/mouse.c and
+      rebuild (the cursor is integrated from relative motion, so the
+      feel is ours to tune - see ARCHITECTURE.TXT).
+
+4. DEPLOYING TO REAL 386SX HARDWARE
+-----------------------------------
+    1. Copy the distribution (CASTALIA.EXE, CASTALIA.INI, INSTALL.BAT and
+       the ASSETS directory) to the target machine (floppy, CF card,
+       network - whatever you use).  Then run  INSTALL  from that directory
+       to copy everything into C:\CASTALIA (or  INSTALL <path>  for another
+       location).  INSTALL.BAT is plain MS-DOS 6.22 / FreeDOS compatible and
+       never touches AUTOEXEC.BAT.  Or just copy the files by hand into one
+       directory such as C:\CASTALIA - the installer is only a convenience.
+    2. Ensure a VGA card is present (EGA/CGA will NOT work - Mode 13h is
+       a VGA mode).
+    3. Load a mouse driver in AUTOEXEC.BAT or CONFIG.SYS if you want the
+       pointer, for example:
+           CTMOUSE          (CuteMouse, small and free), or
+           MOUSE            (any Microsoft-compatible driver)
+    4. Free conventional memory: Castalia needs roughly 64 KB free for
+       its off-screen buffer plus room for itself (~120 KB resident).
+       To leave the most room for launched programs, load DOS high:
+           DOS=HIGH,UMB     in CONFIG.SYS (with HIMEM.SYS), and load the
+           mouse driver into upper memory (DEVICEHIGH / LH) if you can.
+    5. Run CASTALIA from the DOS prompt.
+
+    Note on launching programs: because there is no multitasking,
+    Castalia stays resident while a launched DOS program runs, so the
+    program gets (640 KB - whatever Castalia + DOS use).  That is plenty
+    for editors, file tools and a nested COMMAND.COM.  A program that
+    needs almost all of conventional memory should be run from DOS
+    directly rather than from inside Castalia.
+
+5. CONTINUOUS INTEGRATION
+-------------------------
+    Every push and pull request is checked by GitHub Actions
+    (.github/workflows/ci.yml).  Five jobs run in parallel:
+
+        build       Sets up Open Watcom (open-watcom/setup-watcom) and
+                    cross-compiles CASTALIA.EXE with `wmake` - the very
+                    same Makefile and flags described above, warnings as
+                    errors (-wx -we).  It checks the result is a real MZ DOS
+                    executable of a sane size and uploads it as an
+                    artifact (castalia-dos-build).
+        lint        Enforces the C89 house style - no C++ line comments,
+                    spaces not tabs, LF endings, 7-bit ASCII, a trailing
+                    newline (ci/lint.sh).
+        consistency Keeps the three hand-maintained build definitions
+                    (Makefile, BUILD.BAT, castalia.lnk) and the version
+                    strings in the docs in sync (ci/consistency.sh), and
+                    checks that release/ is still a faithful copy of what
+                    the tree builds - README parity, an ASSETS mirror and
+                    a binary carrying the current version (ci/release.sh;
+                    byte-exact parity is demanded of tag builds only).
+        nearfar     Catches the medium-model trap: far arrays and far
+                    pointers handed to parameters that are NEAR, which
+                    silently drops the segment (ci/nearfar.sh, which runs
+                    its own fixture first - eleven shapes it must flag
+                    and seven it must not).
+        hosttests   Compiles the three file-format parsers (gif.c,
+                    icon.c, config.c) UNMODIFIED against a host shim and
+                    runs a corpus of deliberately hostile files under
+                    AddressSanitizer and UBSan (tests/).  See tests/
+                    README.md - including two limits it does NOT cover.
+        smoke       Boots the freshly built binary under DOSBox on a
+                    virtual X server and confirms it reaches its graphical
+                    desktop, not a crash or a DOS prompt (ci/smoke.sh).
+
+    All of them run locally, and one target runs the lot in order,
+    stopping at the first failure:
+
+        wmake check
+
+    That is the command to run before committing.  It builds if needed,
+    then runs lint, nearfar, consistency, release, the DGROUP watermark
+    and the parser tests.  The scripts are plain bash and the parser
+    tests need only gcc, so it works on any Linux box with the Watcom
+    cross-compiler installed.
+
+    Individually, if you want just one:
+
+        bash ci/lint.sh
+        bash ci/nearfar.sh
+        bash ci/consistency.sh
+        bash ci/release.sh                      # release/ vs the tree
+        bash ci/memory.sh castalia.map          # DGROUP watermark
+        make -C tests                           # parser tests, needs gcc
+
+    The smoke test is deliberately NOT part of `wmake check`, because it
+    wants DOSBox, Xvfb and ImageMagick and should not be a precondition
+    for committing on a machine without them:
+
+        bash ci/smoke.sh release/CASTALIA.EXE   # needs dosbox + Xvfb, and
+                                                # ImageMagick OR ffmpeg+python3
+
+    It boots the binary under DOSBox and counts unique colours in the
+    framebuffer: a live desktop has hundreds, a crash or a DOS prompt
+    has single figures.  Measured on this tree, a good build reports
+    139 and a deliberately truncated one reports 8, against a threshold
+    of 48.
+
+    ci/smoke.sh answers "does it boot".  For "does the thing I changed
+    look right and do the right thing" there is tools/shot.sh, which
+    drives the build under DOSBox and photographs it:
+
+        tools/shot.sh mytest :91 fileman -- 'K plus 1.0; SNAP tagged'
+
+    It writes PNGs to shots/ (gitignored).  Read the header for the
+    helpers, for how to pre-seed files onto C:, and for the two details
+    that waste an hour if you rediscover them yourself - xdotool's window
+    coordinates sit ~48px above the DOS screen's, and DOSBox coalesces a
+    fast double click.  Nearly every visual defect fixed in 0.55 was
+    found this way and none of them were visible in the source.
+
+    Four environment knobs make it reach cases the program cannot
+    otherwise be put into, and each was added because a bug was hiding
+    behind one:
+
+        VIDEO=mode12h   the 640x480 mode.  Half the product, and much
+                        less exercised: a picker sized with a 16-bit
+                        overflow was invisible here and perfect at
+                        320x200.
+        CYCLES=<n>      DOSBox cycles.  1100 is about a 386SX/16 and
+                        12000 about a 486DX2/66.  This is the nearest
+                        thing available to the roadmap's last open item,
+                        and two runs at 1100 found that typing lost more
+                        than half its characters.
+        SMALLA=<KB>     imgmount a FAT12 image (tools/mkfloppy.py) as A:.
+        SMALLFREE=<N>   leave only ~N bytes free on it, the rest taken by
+                        a FILLER.DAT with a real FAT chain.
+
+    The last two exist because a DOSBox directory mount passes writes
+    through to the host, so C: never actually runs out of room however
+    small you tell DOS it is - "mount -freesize" changes only what INT
+    21h AH=36h REPORTS.  Only an image genuinely fills up, and only a
+    genuinely full disk reaches the code that handles one.
+    tools/fatls.py reads the image's root directory back afterwards,
+    which is how you ask what a failed write left behind.
+
+    tools/regress.sh drives the real binary through the cases where a
+    regression costs the user their work - a keyboard-only save, a
+    tagged delete, a tagged copy, a same-folder copy that must be
+    refused, an over-long CARDFILE.DAT that must not be rewritten short,
+    four ways of leaving the shell with unsaved work, a copy that runs
+    out of disk, a save that runs out of disk, a 10 KB document through
+    the far-memory buffer, and typing at 386SX speed - and asserts on
+    what is on C: afterwards rather than on pixels.  Every case
+    corresponds to a bug that was really in the shipped program.  About
+    half a minute each (the slow-speed one rather more), so it is not in
+    `wmake check`:
+
+        tools/regress.sh            all of them
+        tools/regress.sh self deck  just those two
+
+    Worth knowing how two of these were validated, because both fell
+    into the trap these tests exist to avoid.  The "self" case passed
+    with BOTH of its guards disabled - the run was stopping at a
+    replace-confirmation it never answered, so it never reached the
+    dangerous code.  The "m12" case passed with its bug reintroduced for
+    a subtler reason: a dialog sized with a negative height draws nothing
+    but still runs its modal loop, so a blind keyboard save through an
+    INVISIBLE picker writes exactly the file a visible one would, and the
+    disk cannot tell them apart.  That case asserts on pixels now (via
+    tools/pngdiff.py) - 25% of the screen changes when the picker appears
+    and 0% when it does not.
+
+    So: if you add a case, break the fix on purpose and watch it go red
+    before you trust it.  Three times now a green case was measuring
+    nothing, and the third was the worst kind: I had sent the rebuild's
+    output to /dev/null, so the run tested the PREVIOUS binary and the
+    case looked like it passed with the fix removed.  Break the fix,
+    rebuild with the output where you can see it, THEN run.
+
+    A related habit, learned the same day.  `wmake check` runs five gates
+    and the test suite and aborts on the first failure, so its output is
+    naturally read by grepping for whichever gate you had in mind - and a
+    commit went out past a "consistency: FAILED" that way.  The target
+    ends with "check: ALL GATES PASSED"; that line, or the exit code, is
+    the only summary worth reading.
+
+    And `wmake release` restages release/ from the built binary, the
+    README and assets/ - which is what makes ci/release.sh pass again
+    after any of the three has changed.
+
+6. TROUBLESHOOTING
+------------------
+    * "could not allocate the video back buffer" on start-up: less than
+      ~64 KB of free conventional memory.  Free some up (DOS=HIGH,UMB,
+      unload TSRs) and try again.
+    * Blank screen / wrong colours: confirm the adapter is VGA, not EGA.
+    * No pointer: no INT 33h mouse driver is loaded, or [mouse] enabled
+      is false in CASTALIA.INI.  The keyboard still works (ESC exits).
+    * Garbled text after exit: Castalia restores text mode (mode 3) on
+      exit; if a launched program left the screen in an odd state, type
+      MODE CO80 or CLS.
+
+GRAPHICAL INSTALLER
+-------------------
+Both builds also produce INSTALL.EXE, the graphical setup wizard
+(install/insmain.c linked with the shell's video, font, ui and
+keyboard objects; see install/install.lnk).  Ship it beside
+CASTALIA.EXE and the ASSETS tree; running INSTALL from the
+distribution directory opens a themed setup panel.  INSTALL.BAT
+performs the same install with no extra binary.

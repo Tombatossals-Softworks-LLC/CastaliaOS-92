@@ -1,0 +1,75 @@
+======================================================================
+ PRESS RELEASE  -  FOR IMMEDIATE RELEASE  -  JULY 2026
+======================================================================
+
+CASTALIA 92 GIVES EVERY DUSTY 386 THE DESKTOP IT WAS PROMISED
+Free, open-source graphical environment brings overlapping windows,
+a Start button, music and a demoscene screensaver to real-mode DOS
+
+Tombatossals Softworks today announced Castalia 92, a free graphical
+operating environment for DOS-compatible 386 systems.  Castalia 92
+turns a beige-box PC from 1992 - or any emulator, retro handheld or
+industrial relic that still speaks DOS - into a complete windowed
+desktop: overlapping, draggable, resizable windows; a taskbar with a
+Start button; a file manager; an editor, a paint program and thirty
+other built-in tools; twelve games; a WAV/MIDI media player with a
+live spectrum analyzer; eighteen colour themes; and an idle
+screensaver that plays sixteen genuine demoscene effects, from copper
+bars to a textured raycast maze.
+
+It does all of this in roughly 120 KB of resident memory, on a
+processor with no floating-point unit, in 256 colours, from a single
+executable with no external dependencies - because it is written the
+way software was written then: C89, fixed-point integer mathematics,
+and direct VGA programming, compiled with the same Open Watcom
+toolchain family that built the classics.
+
+"Everyone who owned a 386 remembers the day Windows 95 arrived and
+their machine could not run it," said Dave Abellan, creator of
+Castalia 92.  "Castalia 92 is for that machine.  It is the desktop
+1992 deserved: the whole Windows 95 feeling - the taskbar, the themes,
+the little startup chime - running happily in the memory footprint of
+a device driver."
+
+HIGHLIGHTS
+    * The look: navy gradient title bars, 3D bevels, a cascading
+      Start menu, desktop icons, message boxes, a shutdown screen -
+      the full mid-90s liturgy, pixel by pixel.
+    * The apps: file manager, text editor, paint (doubling as an icon
+      editor), calculator, calendar, agenda, hex viewer, character
+      map, Mandelbrot explorer, stopwatch, system inspector with live
+      dashboards, a six-test benchmark with a composite score, and a
+      Gramophone that plays WAV on Sound Blaster (or the bare PC
+      speaker!) and polyphonic MIDI on an OPL2 FM chip.
+    * The games: minesweeper, klondike solitaire, reversi, snake,
+      breakout, falling blocks, sokoban and more - all with
+      PC-speaker sound effects and persistent high scores.
+    * The themes: eighteen complete colour schemes - from the
+      faithful "classic" to a green-phosphor "matrix", a Hot Dog
+      Stand homage and an EGA-blue "dos" - previewed live in the
+      Settings panel as you point at them.
+    * The screensaver: sixteen demoscene effects in pure integer
+      maths - plasma, fire, starfield, rotozoomer, tunnel, voxel
+      terrain flyover, a Wolfenstein-style textured corridor and a
+      DAC-cycled kaleidoscope.
+    * The craft: every release is verified with a host-side rendering
+      harness and continuous integration; the CASTALIA.INI format and
+      icon formats are documented for tinkerers; the whole thing is
+      MIT-licensed source.
+
+AVAILABILITY
+Castalia 92 is available today, free, at
+https://github.com/davabe/CastaliaOS - as buildable source and as a
+ready-to-run release folder that boots on real hardware, DOSBox, 86Box
+and friends.  It is MIT licensed: redistribute it, cover-mount it,
+fork it, ship your own theme packs.
+
+ABOUT TOMBATOSSALS SOFTWORKS
+Tombatossals Softworks is a small studio that builds new software for
+old machines, on the theory that a computer that still turns on
+deserves software that still gets written.  It is named after a
+legendary giant, because the work is small but the shoulders are not.
+
+PRESS CONTACT
+    hello@tombatossalssoftworks.com
+    https://www.tombatossalssoftworks.com

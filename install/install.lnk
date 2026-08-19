@@ -1,0 +1,15 @@
+# ======================================================================
+# install.lnk - Open Watcom wlink directive file for INSTALL.EXE
+# The graphical Castalia 92 installer: its own main plus the same
+# video / font / ui / keyboard objects the desktop links.  Used by
+# BUILD.BAT (wlink @install\install.lnk); the Makefile links inline.
+# ======================================================================
+system dos
+option quiet
+option stack=8192
+name INSTALL.EXE
+file install/insmain.obj
+file src/video.obj
+file src/font.obj
+file src/ui.obj
+file src/keyboard.obj

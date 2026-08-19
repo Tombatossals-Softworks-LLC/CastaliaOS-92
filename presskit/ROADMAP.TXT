@@ -1,0 +1,46 @@
+======================================================================
+ CASTALIA 92  -  WHERE IT IS GOING
+======================================================================
+
+WHERE WE ARE (v0.50, July 2026)
+    The desktop is feature-complete for daily retro use: the window
+    manager, the thirty-plus programs, the twelve games, media
+    playback on three audio devices, eighteen themes, the sixteen-
+    effect screensaver, the installer and the documented INI format
+    are all shipping today.  The project moves in small, frequent
+    releases - roughly one focused improvement per version, each one
+    verified and CI-built.
+
+THE ROAD TO 1.0
+    [ ] Hardening on real iron: a torture lap across genuine 386SX,
+        386DX and 486 machines and the popular mouse drivers, plus
+        the emulator matrix (DOSBox, 86Box, PCem).
+    [x] Frozen, documented formats: CASTALIA.INI, the .ICN icon
+        format, the .ICO subset and the GIF rules are already written
+        down in docs/FORMATS.TXT - your icon packs will not break.
+    [ ] A final memory diet and stability pass, so 1.0 is the version
+        you leave running on the machine in the garage.
+
+AFTER 1.0 (the dream list, in no particular order)
+    * Community theme and icon packs - the format is stable and the
+      Settings grid already grows to fit new entries.
+    * More demoscene effects for the screensaver reel; the bar for
+      entry is "runs in integer maths on a 386SX", and suggestions
+      are gleefully accepted.
+    * More speakers of the era.  UPDATE: the Covox Speech Thing and
+      the Disney Sound Source landed in v0.51 (lptdac= in the INI) -
+      a 386 laptop with no ISA slots is now a music machine.  Gravis
+      Ultrasound remains on the list.
+    * Localised Start buttons.  UPDATE: landed in v0.51 - startlabel=
+      renames the button (Start, Demarrer, Avvio...) and it sizes
+      itself to fit.  The default remains "Inicio".
+
+WHAT WE WANT TO ACHIEVE
+    Every 386 that still turns on deserves a desktop that makes its
+    owner smile.  Success for this project is a photograph we did not
+    take: somebody's rescued tower on a workbench, CRT glowing teal,
+    the little castle in the corner, solitaire mid-cascade.  If your
+    readers send us those photographs, the roadmap is working.
+
+    hello@tombatossalssoftworks.com
+    https://www.tombatossalssoftworks.com

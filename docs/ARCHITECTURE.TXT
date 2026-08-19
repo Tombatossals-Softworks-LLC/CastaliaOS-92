@@ -1,0 +1,628 @@
+======================================================================
+ CASTALIA/386 - ARCHITECTURE.TXT
+ How the program is put together.
+======================================================================
+
+OVERVIEW
+--------
+Castalia is a single-threaded, event-driven DOS program.  There is no
+kernel, no scheduler and no interrupt-driven UI: one main loop polls
+input, updates state, and redraws.  All hardware-specific code is
+isolated behind small module interfaces so the bulk of the UI is plain,
+portable C89.
+
+         +-----------------------------------------------+
+         |                   main.c                      |
+         |   init -> event loop -> dispatch -> render    |
+         +----+------------+-----------+----------+------ +
+              |            |           |          |
+        +-----v---+  +-----v----+  +---v----+  +--v------+
+        | desktop |  | window   |  | menu   |  | launcher|
+        | (icons, |  | manager  |  | Dominus|  | (spawn  |
+        |  taskbar|  | (frames, |  |        |  |  DOS)   |
+        |  clock) |  |  drag)   |  |        |  |         |
+        +----+----+  +----+-----+  +---+----+  +----+----+
+             |            |            |            |
+             |       +----v----+  +----v----+       |
+             |       | files   |  | system  |       |
+             |       | (Disk   |  | (System |       |
+             |       | Cabinet)|  | Panel)  |       |
+             |       +----+----+  +----+----+       |
+             |            |            |            |
+        +----v------------v------------v------------v----+
+        |        ui.c  (3D widgets, icons, text)          |
+        +----+-----------------+-----------------+--------+
+             |                 |                 |
+        +----v----+       +----v----+       +----v----+
+        | video.c |       | font.c  |       | config  |
+        | (Mode13h|       | (8x8    |       | (.INI)  |
+        |  + back |       |  font)  |       +---------+
+        |  buffer)|       +---------+
+        +----+----+       +----+----+
+             |                 |
+        +----v----+       +----v----+
+        | mouse.c |       |keyboard |
+        | (INT33h |       |(INT16h) |
+        | +cursor)|       +---------+
+        +---------+
+
+MODULE RESPONSIBILITIES
+-----------------------
+  castalia.h .. shared types (bool, Rect, fixed-width ints) and the
+                product identity strings.  No code.
+  video.c ..... THE ONLY file that touches VGA hardware.  Hosts both the
+                Mode 13h (linear) and Mode 12h (planar) back-ends behind
+                one set of primitives (pixel/line/rect/fill/bevel) plus
+                present() and a per-rectangle blit used to erase the
+                cursor; programs the theme palette for whichever mode is
+                active.
+  font.c ...... mode-aware text: the embedded 8x8 face (ASCII 0x20-0x7F)
+                for Mode 13h, and the crisp VGA ROM 8x16 face (fetched via
+                INT 10h 1130h) for Mode 12h, with an 8x8-doubled fallback.
+                font_h()/font_adv() report the active metrics, and the
+                whole UI derives its sizes from them so one layout serves
+                both resolutions.
+  mouse.c ..... INT 33h driver access and the software arrow cursor.
+  keyboard.c .. non-blocking keyboard polling (INT 16h via kbhit/getch).
+  ui.c ........ reusable, stateless drawing: 3D raised/sunken bevels,
+                dithered drop shadows (ui_shadow), push buttons, centred
+                text, and the procedural 32x32 icons (folder, terminal,
+                system, drawer, info, file, disk).  Owns the UI scale
+                (1x / 2x).
+  icon.c ...... loads and draws external 32x32 bitmap icons from the
+                simple text .ICN format (with transparency); a desktop
+                icon uses its bitmap if one is configured, else ui.c's
+                procedural shape.
+  calc.c ...... the Calculator applet (integer +-*/).
+  scrap.c ..... the Scrap Box applet: a word-wrapping text editor with a
+                fixed buffer and New/Load/Save.
+  clock.c ..... the Clock & calendar applet (live time, month grid).
+  paint.c ..... the Sketch Pad: a zoomed 32x32 pixel editor that Saves /
+                Loads .ICN files (so it is also the icon editor).  It also
+                receives button-held drags (wm_content_drag) for free-hand
+                drawing.
+  drawer.c .... the Program Drawer: a windowed grid of the configured
+                [shortcut] entries as labelled icons (the desktop's icon
+                rendering and cell metrics, so it scales between modes).  A
+                double-click / Enter only records the chosen entry and
+                returns WM_LAUNCH_PROG; main.c launches it through the same
+                execute_command() path as the menu, so internal verbs and
+                external programs behave identically.
+                Each applet is a window kind; window.c routes its window's
+                client paint, clicks and keys to the module, exactly as it
+                does for the file manager.
+  config.c .... the CASTALIA.INI reader (forgiving, all-defaults).
+  system.c .... gathers DOS/hardware facts for the System Panel, and owns
+                the RAM measurement used by the start-up memory gate.
+                Extended memory is read from the XMS manager (INT 2Fh,
+                function 08h) when one is present - HIMEM.SYS makes the
+                older INT 15h AH=88h probe report 0 - falling back to that
+                BIOS probe only on a machine with no XMS at all.  It also
+                detects the CPU (cpu_detect: the EFLAGS AC/ID-bit probe plus
+                CPUID) so the panel names the real 80x86 family.
+  splash.c .... the boot splash (see STARTUP SEQUENCE below): the Mode 13h
+                gradient/chrome/starfield set piece built in the DAC, and
+                the Mode 12h title panel.  Drawn once at start-up; holds no
+                state and is never re-entered.
+  window.c .... the stacking window manager: frames, title bars, close
+                boxes, dragging, z-order, and content dispatch by window
+                kind (About / System Panel / Disk Cabinet / generic).
+  menu.c ...... the Dominus Start menu: a single-column pop-up with
+                Windows-95 fly-out submenus (Programs / Documents /
+                Settings / Media), each cascading to a child column on
+                hover.  Submenus flip left near the right edge and wrap
+                into balanced columns when taller than the screen.
+  dialog.c .... modal message / confirm / text-input boxes, styled as
+                Windows-95 message boxes: default-button ring, press-and-
+                release buttons, a dotted keyboard-focus rectangle (Tab /
+                arrows) and a title-bar close box.  Each runs its own
+                little event loop over the frozen scene and returns the
+                user's answer synchronously, so callers use them like
+                plain function calls.
+  files.c ..... the Disk Cabinet / My Computer.  Two views share the
+                window: the Windows-95 "My Computer" root (the drives as
+                big icons in a grid) and the folder view (list + toolbar +
+                drive strip + scroll bar).  Handles directory scanning,
+                navigation, drive switching, the file operations (mkdir/
+                delete/rename/copy/move via dialog.c) and file activation.
+  launcher.c .. leaves graphics mode, runs a DOS command to completion,
+                waits for a key, and returns to graphics mode.
+  desktop.c ... background, the icon grid, and the taskbar (launcher
+                button + clock).
+  main.c ...... initialisation, the event loop, event dispatch, scene
+                composition, and clean shutdown.
+
+THE EVENT LOOP  (main.c)
+------------------------
+One iteration:
+
+  1. mouse_update()   - poll INT 33h: latch buttons, integrate relative
+                        motion into the cursor position.
+  2. kb_poll()        - non-blocking; dispatch ESC / arrows / Enter.
+  3. Mouse edges      - detect left-button press/release; time presses
+                        with the BIOS tick counter (INT 1Ah) to spot
+                        double-clicks.
+  4. Dispatch a press in priority order:
+        menu open?  -> the menu consumes the click (pick item or close)
+        else over a window? -> window manager (focus / close / drag /
+                                content click)
+        else on the launcher button? -> open the Dominus menu
+        else on a desktop icon? -> select (double-click = run)
+        else empty desktop -> deselect
+  5. If a drag is in progress, move the window.
+  6. Render IF the scene is "dirty":
+        compose desktop -> windows -> taskbar -> menu into the back
+        buffer, blit the whole back buffer to VGA, then draw the cursor.
+     Else, if only the pointer moved:
+        repaint just the rectangle the cursor used to cover (from the
+        back buffer) and redraw the cursor at the new spot.
+
+This "dirty-flag" approach means the CPU only does full-frame work when
+something actually changes, while the pointer still glides smoothly,
+because moving it touches only two small rectangles.
+
+  7. If the pass ends with nothing dirty, sys_idle() (system.h) executes
+     STI+HLT: the CPU sleeps until the next hardware interrupt.  Every
+     animation in the shell paces off the 18.2 Hz BIOS tick and input
+     raises its own IRQ, so this costs zero latency - it just means an
+     idle desktop consumes (almost) no CPU, which real 386 laptops,
+     emulator hosts and modern power bills all appreciate.  The BIOS
+     tick itself is read straight from the BIOS data area (0040:006C,
+     with a torn-read guard) instead of through INT 1Ah.
+
+THE SCENE CACHE AND DAMAGE DISCIPLINE  (video.c + desktop.c + main.c)
+----------------------------------------------------------------------
+video.c owns a spare frame-sized buffer (allocated from DOS at start-up,
+gracefully absent on tight machines).  desktop.c composes the static
+desktop background - backdrop pattern, icons, labels - once, snapshots
+it there (vid_cache_store), and every later scene rebuild begins with a
+single dword copy back (vid_cache_restore) plus the selected icon cell
+drawn on top.  Backdrop or icon changes invalidate the snapshot.
+
+On top of that, input declares its damage precisely: a click handled by
+the focused window's content repaints just that window (wm_point_on_top
++ WM_REDRAW); clicks that change stacking, geometry (WM_STRUCT) or close
+windows (WM_CLOSED) repaint the scene; clicks that change nothing paint
+nothing.  Background animation ticks (tick_present) present only their
+own window's footprint.  Modal dialogs set a flag (dialog_took_over) so
+the click that summoned one is always followed by a full repaint.
+
+The wallpaper (wallpaper= in [desktop], a 32x32 .ICN tiled over the
+backdrop) rides this machinery for free: it is drawn only inside
+desktop.c's background composition, so its entire cost is paid at the
+rare cache rebuild, never per frame.  Four tiles ship in ASSETS/ICONS
+(CLOUDS, STARS, DIAMOND, CIRCUIT), the Settings panel swaps them live
+(desktop_set_wallpaper reloads the spare bitmap slot and drops the
+cache), and config_save() persists the choice.  Every applet and game
+also carries its own procedural icon (ui.c) - 16-colour theme-slot
+art drawn with the same fill/line primitives as the rest of the UI,
+scaling to 64x64 in Mode 12h with no bitmaps stored anywhere.  The
+UI sound set (open/close/minimize/maximize/launcher blips) runs on
+music.c's one-shot sfx channel: a single tone latched on, timed off
+by the event loop's existing service call, silenced by the Sound
+toggle, and always pre-empted by a real tune.  Desktop icon drag-and-drop reuses
+the window manager's rubber-band pattern - press arms, a few pixels of
+travel goes live, only the outline moves until the drop swaps the two
+CfgIcon slots and invalidates the cache once.
+
+Composition itself is also damage-aware: wm_draw_all() skips any window
+whose entire footprint (frame plus dither shadow) lies under a single
+higher window's opaque body - every pixel it would produce gets painted
+over anyway (occlusion culling).  The window manager additionally keeps
+a per-kind memory of the last closed geometry, so re-opening an applet
+restores the user's position and grown size (the opening size stays the
+resize floor); F5/F6 re-arrange the visible windows (cascade / tile)
+inside the same grow-only constraints, and those keys reach the shell
+only when the focused window's own key handler declined them - the
+Disk Cabinet keeps its F5 = copy.
+
+The present stage keeps a short LIST of dirty rectangles (not one
+union): raising a background window dirties exactly three areas - the
+old top window's title bar, the raised window, and the taskbar's
+active button - and unioning those into one box would cover most of
+the screen.  wm_press() reports the pure-raise case with its own code
+(WM_RAISED) so main.c can recompose once and blit just the three
+rects; the maximize box is the one title-bar control that changes
+geometry (save/restore of the pre-maximize rect; any later drag or
+manual resize simply clears the "maximized" mode).
+
+The same list serves the Dominus menu: opening it (launcher click or
+right-click) and dismissing it mark only the menu's own footprint and
+the taskbar as dirty, so the gradient desktop is never recomposed for
+a menu that covers a fifth of the screen.  Desktop icon drag-and-drop
+likewise avoids disk: on a drop the two CfgIcon entries are swapped in
+the config AND desktop_swap_bitmaps() exchanges the two loaded .ICN
+bitmaps in the far icon table (two _fmemcpy calls), instead of the old
+desktop_init() that re-read every icon file from the disk.
+
+THE SYSTEM ORACLE  (oracle.c)
+-----------------------------
+The diagnostic suite probes everything it reports: CPU class from the
+EFLAGS AC/ID-bit experiments (CPUID vendor/family where the ID bit
+toggles), FPU via FNSTSW's no-op behaviour without a coprocessor, true
+extended memory from the XMS driver's own entry point (system.c),
+EMS from the EMM device signature and INT 67h, VESA via INT 10h 4F00h
+into a transient DOS block, disk volumes via INT 21h 36h and geometry
+via INT 13h 08h, ports straight from the BIOS data area, and the BIOS
+date from F000:FFF5.  The 386-only inline helpers (PUSHFD/POPFD,
+CPUID, REP MOVSD) follow video.c's pragma-aux pattern.  The benchmark
+measures work units against the BIOS tick (spin-aligned to a tick
+edge) and renders the classic reference-bar chart; the two fixed bars
+(PC/XT, AT 286) and the 386SX/16 baseline are scale anchors, chosen
+so the measured machine lands where a period tool would put it.
+
+AGENDA AND HEX PEEK  (agenda.c, peek.c)
+---------------------------------------
+Two small utilities that both trade RAM for reach.  The Agenda holds a
+fixed pool of task strings, checkboxes toggled by click or SPACE, and
+mirrors itself to AGENDA.TXT on every change as human-readable
+"[x] text" lines - so the file is equally a Castalia document and a
+plain text file any editor round-trips.  Hex Peek never loads a whole
+file: it keeps only the page currently on screen (one small buffer),
+re-reading via a single fseek+fread when the offset moves, so a
+multi-hundred-megabyte file scrolls exactly as fast as a tiny one.
+The Disk Cabinet's activate() now returns FILES_LAUNCH for EVERY file,
+and main.c routes by extension - executables to DOS, documents to the
+Scrap Box / Sketch Pad, and everything else to Hex Peek - so a double
+click always resolves to something.
+
+THE ABOUT BOX  (about.c + ui.c)
+-------------------------------
+ui.c owns the brand: ui_castle() draws the Castalia castle at any unit
+size (the big animated logo) and ui_castle_badge() the 13x10 version on
+the taskbar Start button.  about.c is a small tabbed application -
+About / Credits / System / Built / License - that animates off the
+main loop's about_tick(): the About tab twinkles a deterministic
+starfield (no RNG - a cheap hash of the index and the phase) behind the
+castle and waves its pennant; Credits rolls a demoscene scroller;
+System reads live figures (system.c RAM/disk, sys_ticks).  Two easter
+eggs live here: clicking the logo a few times flips a secret line, and
+the ten-key Konami sequence (tracked one key at a time in about_key)
+drops confetti and a hidden greeting.  Everything is drawn with the
+same primitives as the rest of the UI, so the whole show costs one
+window-sized partial present per animated frame.
+
+GIF WALLPAPER  (gif.c + desktop.c)
+----------------------------------
+gif.c decodes the first frame of a GIF87a/GIF89a: it reads the logical
+screen and (global or local) colour table, skips extension blocks, and
+LZW-decodes the image with the classic prefix/suffix/stack tables held
+in a 16 KB far scratch block (freed the moment the frame is out, so the
+resident cost is only the picture).  It handles interlaced images (the
+four-pass row order) and the KwKwK edge case, and clips to the caller's
+buffer.  desktop.c decodes a GIF wallpaper once into a 64 KB far buffer;
+the crucial trick is the PALETTE: the UI owns DAC slots 0..15 and the
+title/desktop gradient ramps own 192..255, so the GIF's palette is
+loaded into the free window 16..191 (video_set_dac) and every pixel is
+shifted +16 to match.  A 128-colour picture and the 16-colour UI thus
+coexist with no clash, and a theme change (which rewrites only 0..15
+and the ramps) leaves the wallpaper's colours intact.  The picture is
+blitted row by row (vid_copy_row) during the same cached-background
+composition as the tiled wallpapers, so it too is free per frame.  In
+Mode 12h (16 colours) there is no palette room, so GIF wallpaper is
+skipped and the .ICN tiles serve.  The default backdrop is CASTLE.GIF
+(a castle on an island at dusk, 320x200, 128 colours); it and SUNSET.GIF
+are stored in the "uncompressed GIF" style - a compliant LZW stream that
+sends a CLEAR before the code width would ever grow, so every code stays
+one width and any decoder, this one included, reads it byte-for-byte.
+
+THE CINEMA  (flic.c)
+--------------------
+A from-scratch player for Autodesk Animator FLI (0xAF11) and FLC (0xAF12)
+"flic" animations.  It streams the file - it seeks to each frame's, and
+each sub-chunk's, declared offset+size, so it never loads the whole
+animation and a mis-decoded or unknown chunk garbles at most one frame
+instead of derailing the stream.  The chunk decoders cover what real
+flics use: COLOR_256 and COLOR_64 (packet palette updates, the 64-level
+ones scaled to 8-bit), BYTE_RUN (per-row RLE, positive=run), the FLI (LC,
+positive=literal) and FLC (SS2, word-oriented, with line-skip and last-
+pixel opcodes) inter-frame deltas, BLACK and FLI_COPY.  Every canvas write
+is clipped to the frame, so a corrupt delta cannot scribble out of bounds.
+A frame decodes into a far canvas, then blits to the Mode-13h back buffer
+(centred, letter-boxed if smaller than 320x200) and drives all 256 DAC
+slots; pacing is off the BIOS tick (no FPU).  The one courtesy the player
+owes the desktop: a flic owns the whole palette, including the 16..191
+window a GIF wallpaper's colours live in, so flic.c snapshots that window
+on entry (video_slot_rgb) and writes it back on exit - the desktop's
+colours return exactly, not just the theme's.  Entry and exit ride the
+same fade-out / fade-in the Light Show uses, so the Cinema dissolves in
+and the desktop dissolves back.
+
+THE START-BUTTON CREST  (desktop.c + icon.c)
+--------------------------------------------
+The Castalia castle on the taskbar Start button is a real .ICO, loaded
+(ASSETS\ICONS\CASTLOGO.ICO) into a spare IconBitmap slot at desktop_init
+right beside the desktop icons and the wallpaper slot.  Because the
+button is only ten pixels tall while an IconBitmap is 32x32, the crest is
+drawn with icon_draw_box(): a nearest-neighbour blit that maps each of
+the size x size destination pixels back to its source column/row and
+collapses equal-colour spans into single hline fills, so a 10-pixel
+badge costs a handful of fills rather than a hundred clipped pixels.  If
+the .ICO is absent the hand-drawn ui_castle_badge() takes over, so the
+brand mark never simply vanishes.  (Note the 8.3 name CASTLOGO.ICO: the
+source art Dave supplied, castaliaos.ico/.png, is kept in ASSETS\ICONS
+as provenance, but DOS needs a <=8-character stem to open it by path.)
+
+EXTERNAL ICONS  (icon.c)
+------------------------
+One IconBitmap (32x32 of theme-slot indices, plus a transparent
+sentinel) is fed by two decoders.  The text .ICN format is trivial.
+Real Windows .ICO files are decoded in full: the ICONDIR is scanned for
+the entry closest to 32x32, its BITMAPINFOHEADER read, and the XOR
+bitmap unpacked at 1/4/8-bpp (via the DIB palette) or 24/32-bpp
+(truecolour, with 32-bpp alpha as transparency), bottom-up and
+DWORD-aligned as the format demands; the 1-bpp AND mask then punches
+the transparent pixels.  An .ICO's colours are quantised ONCE at load
+to the nearest of the 16 active theme slots (video_slot_rgb feeds the
+distance test), so genuine Win95 icon art both renders on the 16-colour
+desktop and recolours when the theme changes.  Any native size is
+nearest-neighbour scaled to the 32x32 cell.  icon_load() sniffs the
+file's first bytes (00 00 01 00 = .ICO) and dispatches.
+
+THE GRAMOPHONE  (media.c)
+-------------------------
+One PC speaker, two eras of sound.  A WAV is parsed from its RIFF/fmt/
+data chunks, downsampled to 8-bit mono at ~4 kHz into a far scratch
+block, and played by PULSE-WIDTH MODULATION: channel 2 of the 8253 is
+put in mode 0 and reloaded with each sample, so the pulse the speaker
+integrates tracks the sample value; the per-sample period is timed by
+polling channel 0 (which counts down at 1.19 MHz regardless of CPU
+speed), so the pitch is identical on any machine.  The burst is bounded
+and abortable with a keypress - digitised speaker audio must own the
+CPU while it plays.  A MIDI file is parsed as a real SMF (variable-
+length delta times, running status, tempo and end-of-track meta events,
+SysEx skipping) into a time-sorted note-on stream, reduced to a
+monophonic top-voice line, and played note by note from media_tick()
+off the BIOS clock - so, like the Music Box, the desktop stays live.
+The same far block backs the WAV sample buffer OR the MIDI file image
+plus note list (only one kind is loaded at a time); the raw MIDI is
+read with _dos_read, not fread, because the medium model's fread buffer
+is near and the block lives in its own segment.  Both modes animate:
+a real-sample oscilloscope for WAV, a scrolling piano roll for MIDI.
+
+SOUND BLASTER  (sblaster.c)
+---------------------------
+When a Sound Blaster is present the Gramophone routes the same 8-bit
+sample buffer to its DAC instead of the speaker.  Detection reads the
+BLASTER environment variable (A=base, I=IRQ, D=8-bit DMA), or, if it is
+absent, probes 220h/240h/... by resetting the DSP (write 1 then 0 to
+base+6, wait for 0xAA) and reads the version byte (0xE1) to name the card.
+Playback is deliberately interrupt-free: the samples are copied into a
+DMA-safe buffer (allocated with slack and nudged so it never straddles a
+64 KB physical page, since 8-bit DMA cannot), the 8237 controller is
+programmed by hand for a single-cycle memory->device transfer, the DSP is
+given a time-constant sample rate and the 0x14 "8-bit output" command, and
+then - crucially - the card's IRQ line is masked at the PIC so its
+end-of-block interrupt is never delivered.  Completion is simply timed off
+the BIOS tick (a key aborts it early, halting the DSP with 0xD0); on the
+way out the 8-bit IRQ is acknowledged, the speaker is switched off and the
+PIC mask is restored, so nothing hardware-stateful survives the call and
+no vector is hooked.  Everything is integer, so it runs on a bare 386SX;
+with no card the Gramophone never notices and plays the PC-speaker burst.
+
+FM MUSIC  (opl.c + media.c)
+---------------------------
+The other half of a Sound Blaster is its OPL2 (Yamaha YM3812) FM chip,
+and opl.c drives it for MIDI so the music is polyphonic and instrument-
+timbred instead of a one-voice square wave.  It is pure register pokes to
+the AdLib window at 388h (address / status) and 389h (data): detection is
+the timer handshake (mask, reset, arm timer 1, watch the overflow flag
+raise), then each of the nine channels is loaded with a patch from an
+eighteen-voice General-MIDI bank - one timbre per GM family (piano,
+chromatic percussion, organ, guitar, bass, strings, ensemble, brass,
+reed, pipe, synth lead, pad, effects, ethnic, percussive, sound-fx) plus
+electric-piano and synth-bass, eleven register bytes each - across its
+two operators, and a note is a fnum/block
+lookup plus the key-on bit.  A voice is re-patched (opl_program) only when
+its instrument actually changes, so following a song's program changes is
+nearly free.  A short post-write I/O delay lets the chip latch on real
+hardware and costs nothing in an emulator; there are no interrupts and no
+DMA, so it is 386SX-cheap.  media.c feeds it: the MIDI parser now keeps
+EVERY note-on (not just the melody's top note), tags each with its
+channel's current program, and groups the ones sharing a tick into a CHORD
+(note and program travelling together as they sort), so a file becomes a
+list of chords with durations and a per-voice instrument.
+media_tick() walks that list off the BIOS clock - releasing the sounding
+chord and key-on'ing the next across as many OPL voices as it has notes.
+Channel-10 notes are not dropped now: rhythm mode (0xBD) overlays five
+percussion voices on channels 6-8, so a chord carries a drum bitmask and
+plays bass drum / snare / hi-hat / tom / cymbal alongside its six melodic
+voices, each drum struck by toggling its 0xBD bit.  With no FM chip it
+keeps the old behaviour and beeps the top note on the speaker.  The piano roll draws one bar per
+voice, so the harmony is visible.  The same OPL path powers the startup
+chime - a hard-coded arpeggio-into-chord - when sound is enabled.
+
+THE INI WRITER  (config.c)
+--------------------------
+config_save() makes the Settings panel's choices permanent without
+trampling the user's hand-edited CASTALIA.INI.  It streams the file
+line by line into CASTALIA.TM$: comments, blank lines, icons,
+shortcuts and colour overrides are copied through verbatim; only the
+managed keys (theme / animations / sound / screensaver in [system],
+pattern in [desktop]) are replaced where they stand.  Keys the file
+never had are appended when their section ends, sections that never
+appeared are created at the end, and a missing INI is built from a
+clean slate.  The temp file replaces the original only after closing
+cleanly, so a full disk cannot eat the configuration.
+
+ANIMATIONS AND PALETTE FADES  (main.c + video.c)
+------------------------------------------------
+All motion effects are gated by animations= in the INI and share two
+cheap mechanisms:
+
+  * Outline zooms (zoom_rect): a dashed rectangle interpolated between
+    a source and a destination, drawn straight onto the visible frame
+    and erased by re-blitting from the back buffer, with a two-deep
+    trail and one vertical-retrace wait per step - so the flourish runs
+    at the same visible speed on every machine.  Windows zoom OUT OF
+    the icon / menu item / drawer cell that launched them (the launch
+    site records its own rectangle), minimize INTO their own taskbar
+    button, and fly back out of it on restore.  The Dominus menu is
+    revealed in rising slices out of the taskbar ("unfurl").
+
+  * Palette fades: video.c keeps a shadow copy of all 256 DAC entries
+    and programs the hardware DAC through ports 3C8h/3C9h.  While
+    "dark" every palette write lands in the shadow only, so a whole
+    scene can be composed and presented invisibly, then revealed with
+    video_fade_in().  This gives fade-from-black at boot, a cross-fade
+    from the splash to the desktop, dissolves around external program
+    launches, transitions between Light Show effects, and a fade to
+    black on exit - for the cost of a few hundred port writes per
+    retrace-paced step, and zero DGROUP (the shadow lives far).
+
+STARTUP SEQUENCE: MEMORY GATE AND BOOT SPLASH  (main.c + splash.c)
+-----------------------------------------------------------------
+Before the desktop there is a deliberate, ordered start-up:
+
+  1. Read CASTALIA.INI; install the INT 24h critical-error handler.
+  2. MEMORY GATE.  While still in text mode (so the message is readable
+     even if graphics never come up), measure conventional + extended RAM
+     and, if it is below 1 MB (CAST_MIN_RAM_KB), print why and return to
+     DOS with a non-zero exit code.  This is the project's self-imposed
+     "Amiga-500-class or nothing" floor.  The extended figure comes from
+     the XMS manager when present (system.c), so a well-equipped machine
+     running HIMEM.SYS is never misread as bare 640 KB and turned away.
+  3. Bring up the chosen video mode and load the themed palette (DAC 0-15).
+  4. BOOT SPLASH (splash.c), dispatched on video_is_big():
+       - Mode 13h paints a 256-colour set piece using ONLY DAC slots
+         16-255 - a sky gradient, a fixed-seed starfield, a chrome logo on
+         a copper band, credits, the detected CPU/RAM, and a progress bar -
+         leaving the UI palette (0-15) untouched for the desktop.  The logo
+         is the embedded 8x8 face scaled up; a fit-to-width helper picks
+         the scale (and uses long arithmetic - SCREEN_W*frac overflows a
+         16-bit int).
+       - Mode 12h paints a clean 16-colour raised title panel.
+     Both are paced by the BIOS 18.2 Hz tick (INT 1Ah), never by Open
+     Watcom's delay(): delay() calibrates a busy-loop to the host CPU and
+     collapses to ~0 ms under an emulator's dynamic core, which would make
+     the splash flash past.  The tick counter is wall-clock everywhere.
+  5. Select the mode's font/icon scale, init mouse + subsystems, run.
+
+GRAPHICS SUBSYSTEM  (video.c)
+-----------------------------
+Two back-ends sit behind one set of vid_* primitives; the active one is
+chosen at start-up from CASTALIA.INI's video= key.  SCREEN_W/SCREEN_H are
+runtime values, so every higher layer adapts automatically.
+
+  * Mode 13h: 320x200, 256 colours, a LINEAR framebuffer at A000:0000
+    (offset = y*320 + x).  The back buffer is one 64000-byte DOS block
+    (4000 paragraphs), so it fits in a single real-mode segment and
+    present() is one blit.  Because 64000 bytes is exactly 16000 dwords,
+    present() uses a hand-written 386 "rep movsd" (l_present_fast) rather
+    than the 8086-built _fmemcpy's "rep movsw", halving the loop count on
+    the most frequent large copy.  Fast and simple; the default.
+
+  * Mode 12h: 640x480, 16 colours, PLANAR.  Memory is four 1-bit planes;
+    a pixel's colour bits share one byte offset across planes 0..3,
+    selected for writes with the Sequencer Map Mask (port 3C4h, index 2).
+    The back buffer is four 38400-byte plane buffers in RAM; present()
+    copies each to VGA with that plane selected.  Horizontal fills work
+    on whole bytes (memset of 00h/FFh per plane) so clearing the screen
+    stays cheap.  The software cursor pokes VGA directly using the
+    Graphics Controller Set/Reset + Bit Mask registers (port 3CEh) and
+    then RESTORES their defaults, because present()/blit assume the plain
+    write path.  The 16 attribute-palette registers are set to identity
+    so colour i shows DAC entry i.
+
+  * Colours are theme SLOTS (C_FACE, C_TITLE, ...); video_set_theme()
+    loads the real RGB into DAC registers 0..15 in either mode, so no
+    higher layer ever hard-codes an RGB value.
+
+  * Mode 13h DAC slot map (256 entries, only 0..15 reachable in Mode 12h):
+        0..15    the 16 theme colours
+        16..191  the boot splash gradients (sky / chrome / copper)
+        224..255 the active title-bar gradient ramp (32 steps), rebuilt
+                 from the theme's title colour on every video_set_theme();
+                 vid_title_bar() sweeps it across a focused title bar, while
+                 Mode 12h and inactive bars use a flat fill.  Slots 192..223
+                 are free.
+
+Because only video.c knows the pixel format, adding Mode 12h changed no
+UI code - exactly the payoff the primitive abstraction was built for.
+
+MOUSE SUBSYSTEM  (mouse.c)
+--------------------------
+  * Uses INT 33h function 0Bh (relative motion counters / "mickeys") and
+    function 03h (buttons).  It deliberately does NOT trust the absolute
+    position from function 03h, because in Mode 13h different drivers
+    disagree about whether the virtual screen is 320 or 640 wide.
+    Integrating relative motion ourselves removes that ambiguity, so the
+    cursor reaches every pixel on DOSBox and on real hardware alike; the
+    only thing we own in exchange is the sensitivity (MOUSE_DIV).
+  * The cursor is a software sprite drawn straight to the visible
+    framebuffer.  Because the clean scene already lives in the back
+    buffer, "erasing" the cursor is simply re-blitting the scene
+    rectangle under it - no separate save-under buffer is needed.
+
+UI SUBSYSTEM  (ui.c + window.c + menu.c + desktop.c)
+----------------------------------------------------
+A small "immediate-mode" core (ui.c draws on demand; it stores nothing)
+under a thin "retained" layer (window.c/menu.c/desktop.c keep the small
+amount of state - which windows exist, what is selected, where the menu
+is).  This hybrid keeps memory tiny and the code easy to follow, which
+is what a 386SX wants.  No dynamic allocation is used for UI objects;
+windows live in a fixed pool, icons and shortcuts in fixed arrays.
+
+LAUNCHER SUBSYSTEM  (launcher.c)
+--------------------------------
+Launching a DOS program means leaving the GUI entirely (there is no
+multitasking):
+
+    save drive+directory -> video_text_mode() -> chdir to the target ->
+    system(command) [runs to completion] -> wait for a key ->
+    restore drive+directory -> video_graphics_mode() + re-apply theme
+
+The caller then marks the scene dirty so the desktop repaints.  Saving
+and restoring the current directory means launching from a shortcut path
+never disturbs where the Disk Cabinet is pointing.
+
+FREE-MEMORY LAUNCH (unloading the shell for big games)
+------------------------------------------------------
+Staying resident costs a launched program ~120 KB of conventional memory -
+fine for tools, a problem for a memory-hungry game.  A [shortcut] marked
+freemem=true takes a different path (main.c launch_entry ->
+launcher_write_runfile):
+
+    Castalia is started through CASTSHEL.BAT, a tiny wrapper that sets the
+    CASTSHEL environment marker and loops:
+
+        set CASTSHEL=1
+        :loop
+        CASTALIA.EXE
+        if not exist CASTRUN.BAT goto done
+        call CASTRUN.BAT
+        del CASTRUN.BAT
+        goto loop
+
+    When you launch a freemem entry, Castalia (seeing CASTSHEL in the
+    environment) writes CASTRUN.BAT - cd to the program's directory, run
+    it, then cd back to Castalia's home drive/dir - and quits.  The wrapper
+    runs that batch with the WHOLE machine free, then loops back and starts
+    the desktop again, in place.
+
+The CASTSHEL marker is the safety interlock: launched as plain CASTALIA
+(no wrapper) the marker is absent, so a freemem entry silently falls back
+to the ordinary resident launch instead of exiting into a dead end.  Only
+external programs unload this way; internal verbs ignore the flag.
+
+FILE MANAGER SUBSYSTEM  (files.c)
+---------------------------------
+  * Scans the current directory with the DOS find-first/find-next calls,
+    listing directories before files (two passes, no temp buffer), plus
+    a synthetic ".." entry for walking up.
+  * Renders a scrolling, selectable list with type markers and sizes.
+  * Navigation (entering a folder, going up) is handled internally with
+    chdir + rescan.  Running an executable is NOT done here: the module
+    reports "launch requested" and the application layer performs the
+    spawn through launcher.c, so all launch policy lives in one place.
+
+DATA OWNERSHIP / DEPENDENCY RULES
+---------------------------------
+  * Only video.c knows about VGA addresses and the DAC.
+  * Only mouse.c/keyboard.c/system.c/files.c/launcher.c issue software
+    interrupts.
+  * ui.c depends on video.c and font.c, nothing higher.
+  * The higher layers depend downward only; there are no cycles.  This
+    is what let Mode 12h be added as a single-file job: the planar back-
+    end lives entirely inside video.c behind the same prototypes, and no
+    UI code changed.
