@@ -180,7 +180,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: castalia-dos-build
 
@@ -225,7 +225,7 @@ jobs:
           ref: ${{ github.ref_name }}
 
       - name: Download the validated build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: castalia-dos-build
 
