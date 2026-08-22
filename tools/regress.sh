@@ -14,6 +14,16 @@
 # the shipped program.
 #
 # Requires: dosbox, Xvfb, ffmpeg, xdotool (same as tools/shot.sh).
+#
+# The helpers are run through an explicit interpreter - bash shot.sh,
+# python3 pngdiff.py - and not as bare paths.  As bare paths every case
+# died instantly on a fresh clone with 'Permission denied': the files are
+# committed without the executable bit, so the suite only ever ran for
+# someone who had chmod'd them by hand.  Ten of eleven cases 'failed' that
+# way the first time this ran in CI, and the eleventh PASSED, because it
+# asserts on a file being absent.  A checkout can lose the bit anyway -
+# FAT and Windows do not carry it, which is not a hypothetical audience
+# for a DOS shell - so naming the interpreter is the fix that keeps.
 # Slow by nature - a DOSBox boot per case, about half a minute each.
 #
 #   tools/regress.sh            run all
@@ -47,7 +57,7 @@ xdotool click --window "$W" --repeat 2 --delay 90 1; sleep 3
 # way to keep it.
 case_save() {
     seed save
-    timeout 300 "$SELF/shot.sh" save :81 scrap "" -- '
+    timeout 300 bash "$SELF/shot.sh" save :81 scrap "" -- '
       xdotool mousemove --window "$W" 60 52; sleep 0.4
       xdotool click --window "$W" --repeat 2 --delay 90 1; sleep 4
       T "regression"
@@ -68,7 +78,7 @@ case_tag() {
     for n in ALPHA BRAVO CHARLIE DELTA ECHO; do
         printf '%s\n' "$n" > "$OUT/seed_tag/$n.TXT"
     done
-    timeout 300 "$SELF/shot.sh" tag :82 fileman "" -- "$CABINET"'
+    timeout 300 bash "$SELF/shot.sh" tag :82 fileman "" -- "$CABINET"'
       K a 0.8
       K space 0.7; K space 0.7
       K Down 0.6; K Down 0.6; K space 0.7
@@ -91,7 +101,7 @@ case_bulk() {
     mkdir -p "$OUT/seed_bulk/DEST"
     printf 'A\n' > "$OUT/seed_bulk/ALPHA.TXT"
     printf 'B\n' > "$OUT/seed_bulk/BRAVO.TXT"
-    timeout 300 "$SELF/shot.sh" bulk :83 fileman "" -- "$CABINET"'
+    timeout 300 bash "$SELF/shot.sh" bulk :83 fileman "" -- "$CABINET"'
       K a 0.8; K space 0.7; K space 0.7
       C 313 64
       sleep 1.5
@@ -122,7 +132,7 @@ case_self() {
     # files survive no matter what the guards do.  A test that passes
     # because it never reached the dangerous code is not a test; this
     # was verified by disabling both guards and watching it still pass.
-    timeout 300 "$SELF/shot.sh" self :84 fileman "" -- "$CABINET"'
+    timeout 300 bash "$SELF/shot.sh" self :84 fileman "" -- "$CABINET"'
       K a 0.8; K space 0.7; K space 0.7
       C 313 64
       sleep 1.5
@@ -149,7 +159,7 @@ cards = ['CARD %02d' % i for i in range(1, 21)]
 open(sys.argv[1], 'w').write('\f\n'.join(cards) + '\f\n')" \
         "$OUT/seed_deck/CARDFILE.DAT"
     before=$(md5sum < "$OUT/seed_deck/CARDFILE.DAT")
-    timeout 300 "$SELF/shot.sh" deck :85 cardfile "" -- '
+    timeout 300 bash "$SELF/shot.sh" deck :85 cardfile "" -- '
       xdotool mousemove --window "$W" 60 52; sleep 0.4
       xdotool click --window "$W" --repeat 2 --delay 90 1; sleep 4
       K Next 1.2; K Next 1.2
@@ -179,7 +189,7 @@ open(sys.argv[1], 'w').write('\f\n'.join(cards) + '\f\n')" \
 case_m12() {
     seed m12
     VIDEO=mode12h XSIZE=720x580 \
-    timeout 300 "$SELF/shot.sh" m12 :86 scrap "" -- '
+    timeout 300 bash "$SELF/shot.sh" m12 :86 scrap "" -- '
       K Down 1.2; K Return 5.0
       sleep 3
       SNAP before
@@ -187,7 +197,7 @@ case_m12() {
       sleep 1
       SNAP after
     ' >/dev/null 2>&1
-    changed=$("$SELF/pngdiff.py" "$OUT/m12_before.png" "$OUT/m12_after.png")
+    changed=$(python3 "$SELF/pngdiff.py" "$OUT/m12_before.png" "$OUT/m12_after.png")
     changed=${changed:-0}
     if [ "$changed" -ge 10 ]
     then ok "m12: the picker appears in Mode 12h ($changed% of the screen changed)"
@@ -225,7 +235,7 @@ case_m12() {
 #              the shut-down Yes, for a case whose save pops its own
 #              dialog on the way out and must dismiss it first
 quit_run() {
-    timeout 300 "$SELF/shot.sh" "$1" "$2" "$3" "" -- '
+    timeout 300 bash "$SELF/shot.sh" "$1" "$2" "$3" "" -- '
       K Down 1.0
       K Return 4.0
       '"$4"'
@@ -318,7 +328,7 @@ open(sys.argv[1], 'w').write(''.join('[ ] ITEM %02d\n' % i
 # The assertion reads the image's root directory afterwards.
 case_full() {
     seed full
-    SMALLA=160 timeout 300 "$SELF/shot.sh" full :89 fileman "" -- '
+    SMALLA=160 timeout 300 bash "$SELF/shot.sh" full :89 fileman "" -- '
       K Down 1.0
       K Return 4.0
       K Right 0.8
@@ -336,7 +346,7 @@ case_full() {
       K Return 8.0
       sleep 4
     ' >/dev/null 2>&1
-    left=$("$SELF/fatls.py" "$OUT/a_full.img" 2>/dev/null)
+    left=$(python3 "$SELF/fatls.py" "$OUT/a_full.img" 2>/dev/null)
     if [ -z "$left" ]
     then ok "full: a copy that runs out of disk leaves nothing behind"
     else bad "full: the failed copy left $left on A:"; fi
@@ -358,7 +368,7 @@ case_full() {
 case_nosave() {
     seed nosave
     SMALLA=160 SMALLFREE=1000 \
-    timeout 300 "$SELF/shot.sh" nosave :92 scrap "" -- '
+    timeout 300 bash "$SELF/shot.sh" nosave :92 scrap "" -- '
       K Down 1.0
       K Return 4.0
       for i in $(seq 1 40); do
@@ -381,7 +391,7 @@ case_nosave() {
       K Escape 2.0
       sleep 3
     ' >/dev/null 2>&1
-    short=$("$SELF/fatls.py" "$OUT/a_nosave.img" 2>/dev/null | grep -c "^BIG.TXT")
+    short=$(python3 "$SELF/fatls.py" "$OUT/a_nosave.img" 2>/dev/null | grep -c "^BIG.TXT")
     if [ ! -e "$(disk nosave)/EXITED.TXT" ] && [ "$short" = 1 ]
     then ok "nosave: a save that ran out of disk leaves the document unsaved"
     else bad "nosave: the failed save was treated as done (exited=$( [ -e "$(disk nosave)/EXITED.TXT" ] && echo yes || echo no), file=$short)"; fi
@@ -414,7 +424,7 @@ open(sys.argv[1], 'wb').write(('\r\n'.join(lines) + '\r\n').encode())" \
     # The Save button is clicked, not Enter: with a name already in the
     # field and the selection sitting on a FOLDER, Enter descends into it
     # rather than accepting - see the picker's key handler.
-    timeout 300 "$SELF/shot.sh" scrapbig :93 scrap "" -- '
+    timeout 300 bash "$SELF/shot.sh" scrapbig :93 scrap "" -- '
       K Down 1.0
       K Return 4.0
       K F3 3.0
@@ -448,7 +458,7 @@ open(sys.argv[1], 'wb').write(('\r\n'.join(lines) + '\r\n').encode())" \
 case_slowkeys() {
     seed slowkeys
     CYCLES=1100 VIDEO=mode12h XSIZE=720x580 \
-    timeout 400 "$SELF/shot.sh" slowkeys :94 scrap "" -- '
+    timeout 400 bash "$SELF/shot.sh" slowkeys :94 scrap "" -- '
       sleep 8
       K Down 2.5
       K Return 12.0

@@ -20,6 +20,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      cases:
+        description: 'Cases to run (space-separated), e.g. "save slowkeys". Empty = all.'
+        required: false
+        default: ''
 
 concurrency:
   group: regress-${{ github.workflow }}-${{ github.ref }}
@@ -59,7 +64,7 @@ jobs:
       # files left on C:.  Its own summary line is the verdict; the exit
       # status follows it.
       - name: Behavioural regression cases
-        run: bash tools/regress.sh
+        run: bash tools/regress.sh ${{ github.event.inputs.cases }}
 
       # The cases write their screenshots, DOSBox logs and scratch disks
       # under shots/.  On a failure that directory is the whole story -
