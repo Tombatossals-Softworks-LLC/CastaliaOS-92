@@ -32,11 +32,13 @@ jobs:
         uses: open-watcom/setup-watcom@v1
         with:
           version: "2.0"
+          # Same pin as ci.yml, and for the same reason, only sharper: this
+          # workflow builds the bytes that go on the Releases page.
+          tag: "2026-08-01-Build"
+          target: dos
 
       - name: Build the shipping binary
-        run: |
-          export INCLUDE="$WATCOM/h"
-          wmake
+        run: wmake
 
       # The bytes on the Releases page have to be the bytes this tag
       # builds - not a binary someone staged by hand three commits ago.

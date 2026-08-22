@@ -813,9 +813,19 @@ v1.0  Stable release  -- OPEN
         * Mode 12h at 386SX speed is usable, not merely correct: the
           desktop, My Computer and the Scrap Box all behave.
 
+      Those two runs were made by hand, once, which is how the sweep
+      that found the typing bug could have gone stale the week after.
+      The whole of tools/regress.sh - eleven cases, slowkeys among them
+      at cycles=1100 - runs in CI on every pull request and every merge
+      now (.github/workflows/regress.yml), so the 386SX-speed claim is
+      re-tested by the machine instead of remembered by a person.
+
       What speed cannot answer: real mouse drivers, real VGA cards, the
       critical-error handler against a real unready floppy, and BIOS
-      variations.  Those still need the machines.
+      variations.  Those still need the machines.  Nor can the rest of
+      the emulator matrix be automated here: 86Box and PCem need real
+      BIOS ROM images, which cannot be committed or downloaded in CI, so
+      those laps stay manual by nature and not by neglect.
   [x] Documented, frozen CASTALIA.INI and icon/theme formats -
       docs/FORMATS.TXT (INI reference, .ICN, .ICO subset, GIF rules,
       CASTALIA.HI, theme names)

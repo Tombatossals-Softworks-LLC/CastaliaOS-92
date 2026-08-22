@@ -144,7 +144,7 @@ per-slot colour overrides.
 | Resident size | ~120 KB (and it can unload itself entirely) |
 | Source | 65 C modules, ~33,000 lines of C89 |
 | External dependencies | **none** — not one library |
-| Toolchain | Open Watcom C/C++ 2.0 (1.9 also builds clean) |
+| Toolchain | Open Watcom C/C++ 2.0, pinned to one snapshot in CI (1.9 also builds clean) |
 | Memory model | medium: far code, near data, explicit `far` for VGA buffers |
 | Warnings | maximum **and** fatal (`-wx -we`); the tree builds silent |
 
@@ -173,6 +173,7 @@ Every pull request and every merge runs:
 | **Build** (Open Watcom, warnings fatal) | The real 16-bit DOS binary, cross-compiled and verified as an MZ executable of a plausible size |
 | **DGROUP watermark** | The 64 KB near-data segment — the scarcest resource in the program, watched like a fuel gauge |
 | **Smoke boot** (DOSBox + Xvfb) | That the binary actually reaches its graphical desktop, proven from the framebuffer |
+| **Behavioural regressions** (DOSBox) | Eleven cases that drive the real shell and assert on what is left on the disk — including one run at `cycles=1100`, about a 386SX/16, because typing at that speed once lost half its characters |
 | **Parser tests** (ASan + UBSan) | The GIF, ICO and INI parsers, built unmodified against a host shim and fed hostile files — every memory-safety bug ever found here was in one of them |
 | **C89 house style** | No `//` comments, spaces not tabs, LF, 7-bit ASCII, trailing newline |
 | **Near/far trap** | The medium-model pointer bug Watcom does not warn about, and that has cost this project two silent-corruption bugs |

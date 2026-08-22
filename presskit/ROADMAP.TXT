@@ -27,6 +27,9 @@ THE ROAD TO 1.0
         characters, because the main loop read one key per pass and a
         640x480 compose takes long enough for a typist to outrun the
         frame rate.  All three input loops drain the BIOS buffer now.
+        Those sweeps run automatically now - the eleven behavioural
+        cases, the 386SX-speed one included, are part of the build on
+        every change - so the claim is re-tested rather than recalled.
         What speed cannot answer is what still needs the machines:
         real mouse drivers, real VGA cards, the critical-error
         handler against a genuinely unready floppy, and the BIOS
