@@ -86,7 +86,7 @@ jobs:
         run: bash ci/release.sh --strict
 
       - name: Upload the build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: castalia-dos-build
           path: |
@@ -194,7 +194,7 @@ jobs:
 
       - name: Upload the boot screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-screenshot
           path: ci-smoke.png
