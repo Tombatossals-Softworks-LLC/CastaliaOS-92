@@ -40,13 +40,23 @@ jobs:
         uses: open-watcom/setup-watcom@v1
         with:
           version: "2.0"
+          # PINNED, and it matters more here than in most projects.  The
+          # action's default is the "Current-build" snapshot, which
+          # upstream republishes every few days - so `version: 2.0` alone
+          # pinned nothing at all, and the compiler under this build could
+          # change without a single commit in this repository.  That is
+          # incompatible with what release/ promises: ci/release.sh proves
+          # on every tag that the shipped bytes ARE the built bytes, and a
+          # byte comparison against a moving compiler is a coin toss.
+          tag: "2026-08-01-Build"
+          # Ask the action for the DOS target headers instead of pointing
+          # INCLUDE at $WATCOM/h by hand: the default leaves INCLUDE on the
+          # Linux-host headers (lh), which a 16-bit DOS cross-build must
+          # not see.
+          target: dos
 
       - name: Build with wmake
-        run: |
-          # setup-watcom points INCLUDE at the Linux-host headers (lh); a
-          # 16-bit DOS cross-build needs the DOS target headers in $WATCOM/h.
-          export INCLUDE="$WATCOM/h"
-          wmake
+        run: wmake
 
       # Both executables wmake produces.  INSTALL.EXE was checked by
       # nothing at all until now: it was built on every run and then
