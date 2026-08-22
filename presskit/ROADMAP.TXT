@@ -33,7 +33,10 @@ THE ROAD TO 1.0
         What speed cannot answer is what still needs the machines:
         real mouse drivers, real VGA cards, the critical-error
         handler against a genuinely unready floppy, and the BIOS
-        variations no emulator reproduces.
+        variations no emulator reproduces.  That lap is written down
+        rather than improvised - docs/HARDWARE.TXT - and the bar for
+        calling it done is three machines that differ in chip, card
+        and mouse driver, each run recorded.
     [x] A memory gauge for the diet, so the last stability pass is
         measured rather than guessed: CI reads the linker map and
         fails the build if DGROUP - the single 64 KB near-data

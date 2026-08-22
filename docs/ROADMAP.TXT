@@ -822,7 +822,13 @@ v1.0  Stable release  -- OPEN
 
       What speed cannot answer: real mouse drivers, real VGA cards, the
       critical-error handler against a real unready floppy, and BIOS
-      variations.  Those still need the machines.  Nor can the rest of
+      variations.  Those still need the machines - and the lap is
+      written down now, in docs/HARDWARE.TXT: nine sections, every
+      check something you can see on the screen or on the disk, and a
+      stated bar for ticking this box (three machines that differ in
+      the things that matter, each lap recorded).  Testing it the same
+      way twice is the difference between hardened and "it worked when
+      I tried it".  Nor can the rest of
       the emulator matrix be automated here: 86Box and PCem need real
       BIOS ROM images, which cannot be committed or downloaded in CI, so
       those laps stay manual by nature and not by neglect.

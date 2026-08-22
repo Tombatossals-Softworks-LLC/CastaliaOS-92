@@ -353,7 +353,10 @@ MORE DOCUMENTATION
 ------------------
   BUILD.TXT ............ how to compile, test in DOSBox, deploy
   tests/README.md ...... the sanitizer tests for the file-format parsers
+  DOCS/GUIDE.TXT ....... using the desktop, applet by applet
+  DOCS/FORMATS.TXT ..... CASTALIA.INI, .ICN, the .ICO subset, GIF rules
   DOCS/ARCHITECTURE.TXT  how the program is put together
+  DOCS/HARDWARE.TXT .... the acceptance lap on real 386/486 machines
   DOCS/ROADMAP.TXT ..... what is planned for v0.2 and beyond
 
 
