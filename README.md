@@ -30,17 +30,20 @@ external libraries.
 ## Why this exists
 
 In 1992 a 386SX with 4 MB of RAM was a serious machine, and what it got was a
-C:\ prompt. Castalia 92 is the desktop that hardware deserved: it boots to a
-mouse pointer in under a second, keeps about 120 KB resident, and launches your
-ordinary DOS programs — or unloads itself **completely** so a big game gets
+C:\ prompt. Castalia 92 is the desktop that hardware deserved: a splash, a
+second or two, and a mouse pointer. It keeps about 120 KB resident while your
+ordinary DOS programs run — or unloads itself **completely**, so a big game gets
 every last kilobyte back.
 
 It is not an emulator, not a toy mock-up, and not a themed web page. It is a
 real-mode DOS binary, written in C89, that draws every pixel itself.
 
-- **It runs on the metal.** Verified on real 386-class hardware, not just in a
-  virtual machine. The minimum spec is *enforced* at start-up, politely, at the
-  DOS prompt.
+- **It is built for the metal.** Designed, measured and tested against a
+  386SX/16 — CI drives the real binary at that speed on every change, and the
+  minimum spec is *enforced* at start-up, politely, at the DOS prompt. The
+  acceptance lap on genuine hardware is written down in
+  [`docs/HARDWARE.TXT`](docs/HARDWARE.TXT) and is the **one** item still open
+  before 1.0. If you own a 386, you can close it.
 - **It has no dependencies.** Not one library. VGA, mouse, keyboard, timer,
   Sound Blaster, OPL2 and the FAT filesystem are all driven directly.
 - **It is one file.** `CASTALIA.EXE`. Copy it to a floppy and it works.
@@ -56,7 +59,7 @@ real-mode DOS binary, written in C89, that draws every pixel itself.
 | <img src="docs/screenshots/39-patience.png" width="380"><br>**Patience** — one of thirteen games, with the winning cascade | <img src="docs/screenshots/24-system-inspector.png" width="380"><br>**System Inspector** — CPU, XMS and disk read off the machine |
 | <img src="docs/screenshots/77-cinema-plasma.png" width="380"><br>**The Light Show** — sixteen demoscene effects, all fixed-point | <img src="docs/screenshots/08-mode12h-640x480-desktop.png" width="380"><br>**640×480×16** — the same desktop, the other video mode |
 
-Eighty-seven more shots are in [`docs/screenshots/`](docs/screenshots), indexed
+Eighty more are in [`docs/screenshots/`](docs/screenshots) — 88 in all, indexed
 at the top of [README.TXT](README.TXT).
 
 ## Get it running
