@@ -1,0 +1,201 @@
+======================================================================
+ CASTALIA/386 - HARDWARE.TXT
+ The acceptance lap on real iron: the last open item before v1.0.
+======================================================================
+
+WHY THIS FILE EXISTS
+--------------------
+ROADMAP.TXT has one box unticked before 1.0: "hardened on several real
+386/486 machines and common mouse drivers".  Everything an emulator can
+answer is answered automatically now - the build, the boot, the eleven
+behavioural cases, and one of those at cycles=1100, which is about a
+386SX/16.  What is left needs the machines, and it needs to be the same
+lap every time or the word "hardened" means whatever the last session
+happened to try.
+
+So this is the lap, written down.  Work top to bottom, record what the
+machine did, and keep the filled-in copy: two runs on two machines that
+tested different things are two anecdotes, not evidence.
+
+Nothing here needs a debugger or a serial cable.  Every check is
+something you can see on the screen or on the disk.
+
+BEFORE YOU START - RECORD THE MACHINE
+-------------------------------------
+    Machine ............ make, model, or "clone"
+    CPU ................ 386SX/DX, 486SX/DX, clock speed
+    RAM ................ total, and how it is configured
+    Chipset / BIOS ..... maker and date from the POST screen
+    Video card ......... chip, not just "VGA" (ET4000, Trident 8900,
+                         Cirrus GD5422, S3 928, onboard...)
+    Monitor ............ fixed-frequency or multisync
+    Mouse .............. serial or PS/2, and which driver + version
+    Sound ............... card and its BLASTER= line, if any
+    DOS ................ MS-DOS 6.22, FreeDOS 1.x, DR-DOS...
+    Disk ............... IDE, CF card, XT-IDE, SCSI; FAT16
+    Castalia version ... from About Castalia
+
+1. THE MEMORY GATE AND START-UP
+-------------------------------
+  [ ] With HIMEM.SYS loaded, Castalia starts.  The System Inspector
+      reports a total RAM figure that matches what the POST said.
+      (The probe asks the XMS manager over INT 2Fh AX=4300h and only
+      falls back to INT 15h AH=88h - system.c.  A machine that reports
+      through neither is the interesting case.)
+  [ ] With no HIMEM.SYS on a 1 MB machine, it still starts: the
+      fallback has to see the extended memory the BIOS knows about.
+  [ ] On a machine with less than 1 MB, it refuses with a readable
+      message at the DOS prompt and returns to it cleanly - no half-set
+      video mode, no lockup.
+  [ ] DOS=HIGH,UMB with EMM386 loaded: starts, and the free
+      conventional figure in the System Inspector goes UP, not down.
+
+2. VIDEO - BOTH MODES, ON A REAL CARD
+-------------------------------------
+  [ ] video=mode13h: the desktop draws, colours are the theme's, and
+      the picture is centred and stable on the monitor.
+  [ ] video=mode12h: same, at 640x480x16.  Planar writes are the part
+      an emulator is most forgiving about; look for torn windows,
+      wrong-plane colour fringes, or a cursor that leaves debris.
+  [ ] The boot splash gradient and the gradient title bars look like a
+      ramp and not like banding or garbage.  They program DAC slots
+      directly (16..255 for the splash, a 32-step ramp for titles), and
+      a card that does not take DAC writes the way DOSBox does will
+      show it here first.
+  [ ] Switch themes from Settings.  The cross-fade completes and no
+      colour slot is left stuck.
+  [ ] A GIF wallpaper loads and its palette does not fight the UI's
+      (theme colours stay correct while the picture is on screen).
+  [ ] The Light Show runs every effect at least once.  Watch for a
+      voxel or raycast frame that tears; those write the most pixels.
+  [ ] Exit to DOS.  Text mode comes back, with a readable prompt and
+      the cursor where it belongs.
+
+3. THE MOUSE - THIS IS THE ONE THAT NEEDS DRIVERS
+-------------------------------------------------
+Castalia talks to INT 33h only (mouse.c), and reads the driver's press
+COUNTER rather than polling button state, so a driver that reports
+counters oddly will show up as missed or doubled clicks.  Try each
+driver you can get hold of:
+
+    [ ] CTMOUSE (CuteMouse) 2.x
+    [ ] MOUSE.COM - Microsoft, whichever version you have
+    [ ] Logitech MOUSE.EXE
+    [ ] Genius / other clone driver
+    [ ] A PS/2 driver, if the machine has a PS/2 port
+    [ ] No driver at all: the shell must still run, keyboard-only,
+        without hanging or drawing a stuck cursor
+
+  For each driver:
+  [ ] The pointer moves smoothly and reaches all four screen edges.
+  [ ] Single click selects; DOUBLE click opens.  Try it on a desktop
+      icon, a Disk Cabinet row and a Program Drawer cell.
+  [ ] Drag a window by its title bar, and drag a desktop icon between
+      grid slots - press, move, release, with nothing left stuck to
+      the pointer.
+  [ ] Right-click on the desktop opens the Dominus context menu.
+  [ ] The scroll-bar thumb can be grabbed and dragged.
+  [ ] Speed feels sane.  If it does not, note the driver: the cursor is
+      integrated from relative motion, so MOUSE_DIV in mouse.c is the
+      knob (see ARCHITECTURE.TXT) - but change it only if more than one
+      driver agrees it is wrong.
+
+4. KEYBOARD AND BIOS VARIATIONS
+-------------------------------
+  [ ] Shift+Tab cycles windows.
+  [ ] Alt+Tab: note whether this BIOS delivers it at all.  Most do not,
+      which is exactly why the cycler moved to Shift+Tab.
+  [ ] Type a long sentence fast into the Scrap Box in BOTH video modes
+      and read it back.  This is the slowkeys case from the automated
+      suite, run against a real keyboard controller.
+  [ ] F5/F6 find, F2 save, ESC closes the top window and then exits.
+  [ ] The Typing Tutor runs a full lesson without a dropped key.
+
+5. DISKS, FLOPPIES AND THE CRITICAL-ERROR HANDLER
+-------------------------------------------------
+The INT 24h handler (system.c, files.c) is the reason an absent floppy
+shows a message instead of hanging the machine.  It has never been
+tested against a real drive, only against DOSBox's idea of one.
+
+  [ ] Click drive A: with NO disk in it.  Expect a message and a
+      working desktop afterwards - not a hang, not a DOS "Abort,
+      Retry, Fail?" over the graphics.
+  [ ] Same with the drive door open, if the drive has a latch.
+  [ ] Insert a WRITE-PROTECTED disk and try to save onto it.  The save
+      must fail visibly and leave the document unsaved.
+  [ ] Fill a floppy and save something bigger than the space left.  The
+      partial file must not be left behind.
+  [ ] Copy a directory of files to and from the floppy in the Disk
+      Cabinet; then check them with a byte comparison on another
+      machine, not by eye.
+  [ ] Swap disks and re-read: the listing refreshes rather than showing
+      the old disk's files.
+  [ ] On the hard disk: create, rename, copy, move and delete, then
+      confirm the same from a DOS prompt with DIR.
+
+6. SOUND
+--------
+  [ ] PC speaker: system beeps and the Music Box play, and stopping
+      leaves silence (no stuck tone).
+  [ ] Sound Blaster: WAV playback via the BLASTER= environment string
+      (sblaster.c reads it).  Check a wrong or missing BLASTER= line
+      degrades to silence rather than a hang.
+  [ ] AdLib/OPL2 at 0x388: MIDI plays polyphonically, and all nine
+      voices release - no note left sounding after Stop.
+  [ ] Covox / Disney Sound Source on the printer port (lptdac=), if you
+      have one.  Note the port and whether it needs the printer
+      disconnected.
+  [ ] With sound=false in the INI, nothing makes a sound at all.
+
+7. LAUNCHING, AND THE FREE-MEMORY PATH
+--------------------------------------
+  [ ] Launch a DOS program from the Disk Cabinet; it runs and returns
+      to the desktop with the screen restored.
+  [ ] Launch a nested COMMAND.COM, type EXIT, come back.
+  [ ] The free-memory path: start through CASTSHEL.BAT, launch a
+      [shortcut] marked freemem=true with a big game, and confirm the
+      game sees essentially all of conventional memory (its own
+      report, or MEM from inside a shell).  Castalia must come back
+      afterwards, in the same directory it started from.
+  [ ] Start Castalia WITHOUT the wrapper and launch that same shortcut:
+      it must fall back to a resident launch instead of exiting.
+
+8. PERSISTENCE
+--------------
+  [ ] Set a theme and a wallpaper in Settings, save, reboot the
+      machine, and find them still set.
+  [ ] Beat a high score, reboot, and find CASTALIA.HI still holds it.
+  [ ] Add agenda entries and cards, reboot, and read them back.
+  [ ] Copy the whole directory to another machine and confirm it runs
+      from there (nothing depends on an absolute path).
+
+9. SPEED, HONESTLY MEASURED
+---------------------------
+  [ ] Run Benchmark and record the CASTALIA SCORE and the machine
+      class it prints.
+  [ ] Record whether the desktop feels usable in BOTH video modes.
+      Mode 12h on a 386SX is the honest worst case and the one the
+      README's claim rests on.
+  [ ] Time a full Mandelbrot render in the Fractal and note it.  About
+      80 seconds is the number from the simulated 386SX/16.
+  [ ] Note anything that feels slower than the emulator suggested; the
+      emulator does not model a slow ISA video card, and that is the
+      most likely place for a surprise.
+
+WHAT COUNTS AS DONE
+-------------------
+The box in ROADMAP.TXT can be ticked when this lap has been completed
+on at least three machines that differ in the things that matter:
+
+    * a genuine 386 (SX or DX), which is the target,
+    * a 486, which is what most people actually have,
+    * and one machine with a different video chip and a different
+      mouse driver from the other two.
+
+Record the filled-in lap for each - what passed, what did not, and what
+was not testable for want of a part.  A gap that is written down is a
+known gap; a gap that is not is a claim.
+
+86Box and PCem laps are worth running too, but they are not a
+substitute and they cannot be automated here: both need real BIOS ROM
+images, which cannot be committed to this repository or fetched in CI.

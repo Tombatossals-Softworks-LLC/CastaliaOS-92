@@ -12,6 +12,7 @@ screensaver — on a 386SX with 1 MB of RAM, in a single `.EXE`, with **zero**
 external libraries.
 
 [![CI](https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92/actions/workflows/ci.yml/badge.svg)](https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92/actions/workflows/ci.yml)
+[![Regression](https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92/actions/workflows/regress.yml/badge.svg)](https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92/actions/workflows/regress.yml)
 [![Version](https://img.shields.io/badge/version-0.56-blue)](README.TXT)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-MS--DOS%206.22%20%7C%20FreeDOS-lightgrey)](BUILD.TXT)
@@ -192,6 +193,7 @@ straight from the history in `README.TXT`.
 | [`README.TXT`](README.TXT) | The full manual, and the release history |
 | [`BUILD.TXT`](BUILD.TXT) | Toolchain, building, DOSBox, real hardware |
 | [`docs/ARCHITECTURE.TXT`](docs/ARCHITECTURE.TXT) | How the program is put together |
+| [`docs/HARDWARE.TXT`](docs/HARDWARE.TXT) | The acceptance lap on real 386/486 iron — the last item before 1.0 |
 | [`docs/FORMATS.TXT`](docs/FORMATS.TXT) | `CASTALIA.INI`, `.ICN` icons, launcher verbs |
 | [`docs/GUIDE.TXT`](docs/GUIDE.TXT) | Using the desktop |
 | [`docs/ROADMAP.TXT`](docs/ROADMAP.TXT) | What is planned |
