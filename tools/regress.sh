@@ -357,12 +357,18 @@ case_full() {
     # reason.  The screen is the positive half.  Between the open picker
     # and the finished attempt the display must have MOVED; a run that
     # never booted compares two identical black frames and scores 0.
+    #
+    # The bar is ANY movement, not a percentage worth tuning.  A refused
+    # copy repaints a small dialog and about 3% of the screen, measured
+    # - so a threshold set near that number would be a flake waiting for
+    # a dialog to move two pixels, while the thing being ruled out here
+    # scores exactly zero.  0 vs not-0 is the whole question.
     changed=$(python3 "$SELF/pngdiff.py" "$OUT/full_before.png" \
                                          "$OUT/full_after.png")
     changed=${changed:-0}
     if [ -n "$left" ]; then
         bad "full: the failed copy left $left on A:"
-    elif [ "$changed" -lt 3 ]; then
+    elif [ "$changed" -lt 1 ]; then
         bad "full: the shell never got as far as trying (${changed}% of the screen changed) - this case proves nothing"
     else
         ok "full: a copy that runs out of disk leaves nothing behind (${changed}% of the screen changed)"
