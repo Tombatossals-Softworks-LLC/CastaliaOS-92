@@ -340,6 +340,19 @@ fi
 [ -n "$unindexed$phantom" ] || \
   echo "    $(echo "$on_disk" | wc -l | tr -d ' ') screenshots, all indexed"
 
+echo "==> README.md counts the screenshots it points at"
+# The shop window says how many shots there are, which is the kind of
+# number nobody re-counts.  It was wrong the day it was written: it named
+# the total while the gallery above it was already showing eight of them.
+shots=$(ls docs/screenshots/*.png 2>/dev/null | wc -l | tr -d ' ')
+if [ ! -f README.md ]; then
+  flag "README.md is missing"
+elif ! grep -q "$shots in all" README.md; then
+  flag "README.md does not say '$shots in all' - docs/screenshots holds $shots"
+else
+  echo "    $shots screenshots, and README.md says so"
+fi
+
 echo "==> the press kit quotes the current version"
 # The press kit is the copy nobody edits during a release, so it is the
 # copy that goes stale: its fact sheet and its roadmap both sat on 0.50
