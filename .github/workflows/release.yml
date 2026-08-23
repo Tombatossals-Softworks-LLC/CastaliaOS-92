@@ -45,21 +45,15 @@ jobs:
       - name: The tagged release/ is the binary we just built
         run: bash ci/release.sh --strict
 
+      # The same script CI runs on every change (see ci.yml), so the tag
+      # build is not the first time these lines are executed.
       - name: Build the distribution archive
         id: pack
         run: |
           V=$(grep -oE 'CAST_VERSION[[:space:]]+"[0-9.]+"' src/castalia.h |
               grep -oE '[0-9]+\.[0-9]+')
           echo "version=$V" >> "$GITHUB_OUTPUT"
-
-          # A DOS user unzips this onto a FAT drive and runs INSTALL, so
-          # the archive holds the bundle itself at the top level - no
-          # release/ directory to descend into first.
-          stage="castalia-$V"
-          mkdir -p "$stage"
-          cp -r release/. "$stage/"
-          zip -r -9 "castalia-$V.zip" "$stage" >/dev/null
-          unzip -l "castalia-$V.zip"
+          bash ci/package.sh
 
       - name: Release notes from README.TXT
         run: bash ci/relnotes.sh "${{ steps.pack.outputs.version }}" > NOTES.txt

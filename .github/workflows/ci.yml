@@ -160,6 +160,16 @@ jobs:
       - name: Release staging is current
         run: bash ci/release.sh
 
+      # Build the download itself, on every change, and throw it away.
+      # The archive step used to live inside the tag workflow, where it
+      # would have run for the first time on the day it shipped - and
+      # this repository has no tags yet, so not one line of it had ever
+      # executed.  ci/package.sh also reads the archive back and checks
+      # the manifest, because "zip exited 0" is not evidence that
+      # CASTALIA.EXE is inside.
+      - name: The release archive builds and carries the bundle
+        run: bash ci/package.sh "$RUNNER_TEMP"
+
   # --------------------------------------------------------------------
   # The shell itself is 16-bit DOS and cannot be sanitized, but its three
   # file-format parsers are plain C fed fully hostile input - a GIF or

@@ -335,6 +335,7 @@ case_full() {
       K Return 3.0
       K c 1.0
       K F5 3.0
+      SNAP before
       # Backspace EDITS THE NAME here - the picker is in save mode, so it
       # is not the go-up key it is in the Disk Cabinet.  Clear the
       # pre-filled COPY_OF.EXE and type an absolute path instead.
@@ -345,11 +346,33 @@ case_full() {
       T "A:\\BIG.EXE"
       K Return 8.0
       sleep 4
+      SNAP after
     ' >/dev/null 2>&1
     left=$(python3 "$SELF/fatls.py" "$OUT/a_full.img" 2>/dev/null)
-    if [ -z "$left" ]
-    then ok "full: a copy that runs out of disk leaves nothing behind"
-    else bad "full: the failed copy left $left on A:"; fi
+    # An empty floppy is what a REFUSED copy leaves - and also what a run
+    # that never started leaves.  This case asserted on the absence alone
+    # and so reported success the first time the suite ran in CI, where
+    # every case had died on a "Permission denied" before DOSBox was even
+    # launched: ten cases failed honestly, this one passed for the wrong
+    # reason.  The screen is the positive half.  Between the open picker
+    # and the finished attempt the display must have MOVED; a run that
+    # never booted compares two identical black frames and scores 0.
+    #
+    # The bar is ANY movement, not a percentage worth tuning.  A refused
+    # copy repaints a small dialog and about 3% of the screen, measured
+    # - so a threshold set near that number would be a flake waiting for
+    # a dialog to move two pixels, while the thing being ruled out here
+    # scores exactly zero.  0 vs not-0 is the whole question.
+    changed=$(python3 "$SELF/pngdiff.py" "$OUT/full_before.png" \
+                                         "$OUT/full_after.png")
+    changed=${changed:-0}
+    if [ -n "$left" ]; then
+        bad "full: the failed copy left $left on A:"
+    elif [ "$changed" -lt 1 ]; then
+        bad "full: the shell never got as far as trying (${changed}% of the screen changed) - this case proves nothing"
+    else
+        ok "full: a copy that runs out of disk leaves nothing behind (${changed}% of the screen changed)"
+    fi
 }
 
 # -------------------------------------------------------------- nosave
