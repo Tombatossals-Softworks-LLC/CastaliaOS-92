@@ -72,7 +72,9 @@ case_save() {
 }
 
 # ----------------------------------------------------------------- tag
-# Tag three of five and delete: exactly those three, one confirmation.
+# Tag three of five and delete: exactly those three, one confirmation -
+# and, since every DOSBox drive is a fixed disk, into the Recycle Bin:
+# three DCn.TXT files in C:\RECYCLED and three records in its INFO.TXT.
 case_tag() {
     seed tag
     for n in ALPHA BRAVO CHARLIE DELTA ECHO; do
@@ -92,6 +94,11 @@ case_tag() {
        [ -e "$d/ECHO.TXT" ] && [ -e "$d/CASTALIA.EXE" ]
     then ok "tag: Del removes the tagged three and nothing else"
     else bad "tag: wrong set deleted"; fi
+    binned=$(ls "$d/RECYCLED" 2>/dev/null | grep -c '^DC[0-9]*\.TXT$')
+    recs=$(grep -c "$(printf '	')" "$d/RECYCLED/INFO.TXT" 2>/dev/null)
+    if [ "$binned" = 3 ] && [ "$recs" = 3 ]
+    then ok "tag: the three went to the Recycle Bin, each with its record"
+    else bad "tag: Recycle Bin holds $binned files and $recs records, not 3 and 3"; fi
 }
 
 # ---------------------------------------------------------------- bulk
@@ -375,6 +382,32 @@ case_full() {
     fi
 }
 
+# ------------------------------------------------------------- recycle
+# Restore from the Recycle Bin: a binned file goes back where it came
+# from and its INFO.TXT record goes with it, while the other record
+# stays.  The bin is seeded the way recycle.c writes it.
+case_recycle() {
+    seed recycle
+    mkdir -p "$OUT/seed_recycle/RECYCLED"
+    printf 'first\r\n'  > "$OUT/seed_recycle/RECYCLED/DC1.TXT"
+    printf 'second\r\n' > "$OUT/seed_recycle/RECYCLED/DC2.TXT"
+    printf 'DC1.TXT\tC:\\BACK.TXT\r\nDC2.TXT\tC:\\STAY.TXT\r\n' \
+        > "$OUT/seed_recycle/RECYCLED/INFO.TXT"
+    timeout 300 bash "$SELF/shot.sh" recycle :93 recycle "" -- '
+      xdotool mousemove --window "$W" 60 52; sleep 0.4
+      xdotool click --window "$W" --repeat 2 --delay 90 1; sleep 4
+      K Return 3.0
+      sleep 2
+    ' >/dev/null 2>&1
+    d=$(disk recycle)
+    if grep -q first "$d/BACK.TXT" 2>/dev/null &&
+       [ ! -e "$d/RECYCLED/DC1.TXT" ] && [ -e "$d/RECYCLED/DC2.TXT" ] &&
+       ! grep -q '^DC1\.TXT' "$d/RECYCLED/INFO.TXT" &&
+       grep -q '^DC2\.TXT' "$d/RECYCLED/INFO.TXT"
+    then ok "recycle: Enter restores the first entry and drops only its record"
+    else bad "recycle: the restore did not land (or took the wrong record)"; fi
+}
+
 # -------------------------------------------------------------- nosave
 # A save that FAILED must not mark the document saved - and must not
 # leave half a file behind.
@@ -499,7 +532,7 @@ case_slowkeys() {
     else bad "slowkeys: keys were lost - got [$got]"; fi
 }
 
-ALL="save tag bulk self deck m12 quit full nosave scrapbig slowkeys"
+ALL="save tag bulk self deck m12 quit full nosave scrapbig slowkeys recycle"
 for c in ${*:-$ALL}; do
     case " $ALL " in
       *" $c "*) "case_$c" ;;

@@ -44,6 +44,7 @@
 #define KEY_F7     (0x100 | 65)    /* F7: new folder / new card             */
 #define KEY_F8     (0x100 | 66)    /* F8: delete a RECORD, where Del already
                                       deletes a character                   */
+#define KEY_ALTENTER (0x100 | 0x1C) /* Alt+Enter: Properties, where reported */
 #define KEY_F10    (0x100 | 68)    /* F10: open the Start menu (DOS habit)  */
 #define KEY_CTRLESC (0x100 | 0x2E) /* Ctrl+Esc: same, where the BIOS reports it */
 /* Ctrl+Home / Ctrl+End: top and bottom of a document.  The BIOS reports

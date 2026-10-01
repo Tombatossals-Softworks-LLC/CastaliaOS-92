@@ -130,7 +130,7 @@ void config_defaults(Config *cfg)
     cfg->lptport = 1;
     strcpy(cfg->startlabel, "Inicio");
 
-    /* Four desktop icons that work out of the box. */
+    /* Six desktop icons that work out of the box. */
     strcpy(cfg->icons[0].name, "My Computer");
     strcpy(cfg->icons[0].command, "fileman");
     strcpy(cfg->icons[1].name, "Command Room");
@@ -141,7 +141,9 @@ void config_defaults(Config *cfg)
     strcpy(cfg->icons[3].command, "drawer");
     strcpy(cfg->icons[4].name, "About Castalia");
     strcpy(cfg->icons[4].command, "about");
-    cfg->icon_count = 5;
+    strcpy(cfg->icons[5].name, "Recycle Bin");
+    strcpy(cfg->icons[5].command, "recycle");
+    cfg->icon_count = 6;
 
     /* Default Dominus launcher menu. */
     strcpy(cfg->shortcuts[0].name, "My Computer");

@@ -19,7 +19,7 @@
 
 CC      = wcc
 # -os (optimise for SIZE) everywhere: the .EXE has to fit conventional
-# memory alongside DOS, and most of these 65 modules are applet code that
+# memory alongside DOS, and most of these 67 modules are applet code that
 # runs once per user action, where size beats speed every time.
 # -we: warnings ARE errors.  -wx alone is only the maximum warning
 # LEVEL - it prints W112 "Pointer truncated" and then exits 0.  W112 is
@@ -52,7 +52,7 @@ HDRS = $(SRC)/castalia.h $(SRC)/video.h $(SRC)/font.h $(SRC)/mouse.h &
        $(SRC)/flic.h $(SRC)/sblaster.h $(SRC)/opl.h $(SRC)/lptdac.h $(SRC)/demo.h $(SRC)/splash.h &
        $(SRC)/pong.h $(SRC)/calendar.h $(SRC)/g2048.h $(SRC)/hiscore.h &
        $(SRC)/find.h $(SRC)/recent.h $(SRC)/filedlg.h $(SRC)/picshow.h $(SRC)/corral.h $(SRC)/typist.h &
-       $(SRC)/textscan.h
+       $(SRC)/textscan.h $(SRC)/recycle.h $(SRC)/props.h
 
 OBJS = $(SRC)/main.obj $(SRC)/video.obj $(SRC)/font.obj $(SRC)/mouse.obj &
        $(SRC)/keyboard.obj $(SRC)/ui.obj $(SRC)/config.obj &
@@ -72,7 +72,7 @@ OBJS = $(SRC)/main.obj $(SRC)/video.obj $(SRC)/font.obj $(SRC)/mouse.obj &
        $(SRC)/flic.obj $(SRC)/sblaster.obj $(SRC)/opl.obj $(SRC)/lptdac.obj $(SRC)/demo.obj $(SRC)/splash.obj &
        $(SRC)/pong.obj $(SRC)/calendar.obj $(SRC)/g2048.obj $(SRC)/hiscore.obj &
        $(SRC)/find.obj      $(SRC)/recent.obj $(SRC)/filedlg.obj $(SRC)/picshow.obj $(SRC)/corral.obj $(SRC)/typist.obj &
-       $(SRC)/textscan.obj
+       $(SRC)/textscan.obj $(SRC)/recycle.obj $(SRC)/props.obj
 
 all : CASTALIA.EXE INSTALL.EXE
 
@@ -117,7 +117,8 @@ CASTALIA.EXE : $(OBJS)
 	  file $(SRC)/find.obj    file $(SRC)/picshow.obj &
 	  file $(SRC)/recent.obj  file $(SRC)/filedlg.obj &
 	  file $(SRC)/corral.obj  file $(SRC)/typist.obj &
-	  file $(SRC)/textscan.obj
+	  file $(SRC)/textscan.obj                          &
+	  file $(SRC)/recycle.obj  file $(SRC)/props.obj
 
 # ---- compile (explicit rules; any header change rebuilds all) --------
 $(SRC)/main.obj : $(SRC)/main.c $(HDRS)
@@ -259,6 +260,12 @@ $(SRC)/recent.obj : $(SRC)/recent.c $(HDRS)
 
 $(SRC)/textscan.obj : $(SRC)/textscan.c $(HDRS)
 	$(CC) $(CFLAGS) -fo=$@ $(SRC)/textscan.c
+
+$(SRC)/recycle.obj : $(SRC)/recycle.c $(HDRS)
+	$(CC) $(CFLAGS) -fo=$@ $(SRC)/recycle.c
+
+$(SRC)/props.obj : $(SRC)/props.c $(HDRS)
+	$(CC) $(CFLAGS) -fo=$@ $(SRC)/props.c
 
 $(SRC)/filedlg.obj : $(SRC)/filedlg.c $(HDRS)
 	$(CC) $(CFLAGS) -fo=$@ $(SRC)/filedlg.c

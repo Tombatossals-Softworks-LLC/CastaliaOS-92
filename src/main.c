@@ -65,6 +65,7 @@
 #include "find.h"
 #include "picshow.h"
 #include "media.h"
+#include "sblaster.h"   /* sb_release (closing the Gramophone)          */
 #include "lptdac.h"
 #include "flic.h"
 #include "opl.h"
@@ -73,6 +74,8 @@
 #include "demo.h"
 #include "recent.h"
 #include "filedlg.h"
+#include "recycle.h"
+#include "props.h"
 #include "splash.h"
 #include "pong.h"
 #include "calendar.h"
@@ -82,6 +85,7 @@
 
 static Config g_cfg;
 static bool_t g_quit       = FALSE;
+static int    g_quit_mode  = SD_OFF;   /* how Shut Down asked us to leave */
 static bool_t g_dirty      = TRUE;
 static bool_t g_have_mouse = FALSE;
 
@@ -658,13 +662,22 @@ static void execute_command(const char *command, const char *path)
     } else if (streqi(command, "recentclear")) {
         recent_clear();                /* Start > Documents > Clear the list */
     } else if (streqi(command, "exit")) {
-        /* "Shut Down..." - the ellipsis promises a dialog, and a stray
-           Esc on the desktop already asks.  Ending the session from the
-           menu with no question at all was the odd one out. */
-        if (dialog_confirm("Shut Down", "Leave Castalia and return to DOS?",
-                           NULL) == DLG_YES && ok_to_quit())
+        /* "Shut Down..." - the Windows 95 dialog: shut down (the "safe to
+           turn off" farewell), restart the machine, or straight back to
+           the MS-DOS prompt. */
+        int sd = shutdown_dialog();
+        if (sd != SD_CANCEL && ok_to_quit()) {
             g_quit = TRUE;
+            g_quit_mode = sd;
+        }
         damage_all();                  /* the prompt sat on top of the scene */
+    } else if (streqi(command, "recycle") || streqi(command, "recyclebin") ||
+               streqi(command, "trash")) {
+        recycle_open();                /* re-read every drive's bin       */
+        open_centered(WIN_RECYCLE, "Recycle Bin", 268, 160);
+    } else if (streqi(command, "datetime") || streqi(command, "timedate")) {
+        (void)props_datetime();
+        damage_all();
     } else if (streqi(command, "bsod") || streqi(command, "crash")) {
         bsod_show();                   /* the blue-screen easter egg          */
         damage_all();                  /* then bring the desktop back         */
@@ -698,18 +711,20 @@ static const char * const far INTERNAL_VERBS[] = {
     "2048", "about", "agenda", "aida", "arcade", "bench", "benchmark",
     "blocks", "breaker", "bricks", "bsod", "cal", "calc", "calendar",
     "cardfile", "cards", "charmap", "chars", "cinema", "clock", "colors",
-    "control", "corral", "crash", "demo", "demos", "depot", "drawer", "echo",
+    "control", "corral", "crash", "datetime", "demo", "demos", "depot", "drawer", "echo",
     "effects", "exit", "eyes", "fifteen", "fileman", "find", "flic",
     "fractal", "gallery", "games", "gram", "gramophone", "help",
     "hexview", "inspect", "inspector", "jezz", "lights", "lightshow",
     "lightsout", "mandelbrot", "media", "memory", "merge", "minefield",
     "mines", "movie", "music", "oracle", "othello", "paint", "palette",
     "patience", "peek", "picshow", "pictures", "play", "pong", "probe",
-    "programs", "puzzle", "quadrix", "recentclear", "reversi", "run",
+    "programs", "puzzle", "quadrix", "recentclear", "recycle",
+    "recyclebin", "reversi", "run",
     "scrap", "search",
     "serpent", "settings", "sketch", "snake", "sokoban", "solitaire",
-    "stopwatch", "sysinfo", "system", "tetra", "tictactoe", "timer",
-    "todo", "toolbox", "tools", "ttt", "tunes", "typing", "typist"
+    "stopwatch", "sysinfo", "system", "tetra", "tictactoe", "timedate",
+    "timer", "todo", "toolbox", "tools", "trash", "ttt", "tunes", "typing",
+    "typist"
 };
 #define INTERNAL_N ((int)(sizeof(INTERNAL_VERBS) / sizeof(INTERNAL_VERBS[0])))
 
@@ -1133,6 +1148,13 @@ static void on_left_down(int mx, int my, bool_t dbl)
             return;
         }
         desktop_clock_rect(&cr);
+        if (g_cfg.clock_enabled && rect_contains(&cr, mx, my) && dbl) {
+            /* Double-click the tray clock: Date/Time Properties, as in
+               Windows 95 (the single click before it opened the Clock). */
+            (void)props_datetime();
+            damage_all();
+            return;
+        }
         if (g_cfg.clock_enabled && rect_contains(&cr, mx, my)) {
             damage_all();
             zoom_origin(&cr);          /* the window springs out of it     */
@@ -1211,10 +1233,11 @@ static void on_key(int key)
         } else {
             /* ESC on the bare desktop used to drop straight to DOS with no
                confirmation - one stray keypress and the session was over. */
-            if (dialog_confirm("Exit Castalia",
-                               "Leave the desktop and", "return to DOS?")
-                == DLG_YES && ok_to_quit())
+            int sd = shutdown_dialog();
+            if (sd != SD_CANCEL && ok_to_quit()) {
                 g_quit = TRUE;
+                g_quit_mode = sd;
+            }
         }
         damage_all();
         return;
@@ -1523,7 +1546,10 @@ static void event_loop(void)
                            to the window first (Minefield flags with it,
                            the way Minesweeper always has). */
                         int rr = wm_rpress(mx, my);
-                        if (rr == WM_REDRAW || rr == WM_RAISED) {
+                        if (rr == WM_LAUNCH) {  /* context menu "Open"  */
+                            do_fileman_launch();
+                            damage_all();
+                        } else if (rr == WM_REDRAW || rr == WM_RAISED) {
                             /* WM_RAISED means the stack was reordered:
                                without a repaint the screen would keep
                                showing the old z-order. */
@@ -1757,11 +1783,18 @@ static void event_loop(void)
             } else if (media_tick(wm_top_kind() == WIN_MEDIA ? TRUE : FALSE)) {
                 tick_present(WIN_MEDIA);
             }
-        } else if (media_is_playing()) {
-            media_stop();
+        } else {
+            /* Window closed: stop, and give the clip buffer and the SB
+               DMA block back (both free nothing when nothing is held). */
+            media_release();
+            sb_release();
         }
         /* Find File asked for a pattern: pop the modal input, then sweep
            the drive under the hourglass (same poll pattern as Eject). */
+        if (!wm_has_kind(WIN_FIND))
+            find_release();                /* no-op when nothing is held */
+        if (!wm_has_kind(WIN_RECYCLE))
+            recycle_release();
         if (wm_has_kind(WIN_FIND) && find_poll_prompt()) {
             static char fpat[13] = "*.EXE";
             if (dialog_input("Find File", "Pattern (e.g. *.TXT):", fpat,
@@ -2076,10 +2109,15 @@ int main(int argc, char *argv[])
     opl_silence();
     if (g_have_mouse)
         mouse_hide();
-    splash_shutdown();
+    if (g_quit_mode == SD_OFF)
+        splash_shutdown();             /* "It's now safe to turn off..."  */
     video_fade_out();
     video_shutdown();
 
+    if (g_quit_mode == SD_RESTART) {
+        printf("Restarting...\n");
+        sys_reboot();                  /* does not return                 */
+    }
     printf("CASTALIA/386 - desktop closed. Back at DOS.\n");
     printf("Tombatossals Softworks.\n");
     return 0;

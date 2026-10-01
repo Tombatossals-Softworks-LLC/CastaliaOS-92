@@ -73,6 +73,7 @@
 #define ICON_HDD      49   /* a fixed disk (drive body, face plate, LED)   */
 #define ICON_NETDRV   50   /* a network drive (a fixed disk on a pipe)     */
 #define ICON_CALENDAR 51   /* the Calendar - it had been sharing ICON_AGENDA */
+#define ICON_RECYCLE  52   /* the Recycle Bin (a tapered mesh wastebasket) */
 
 /* Set / query the icon scale (1 = 32x32 for Mode 13h, 2 = 64x64 for 12h). */
 void ui_set_scale(int s);

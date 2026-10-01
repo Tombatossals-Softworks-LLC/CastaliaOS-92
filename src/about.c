@@ -56,8 +56,8 @@ static const char * const CRED[] = {
 #define NCRED (int)(sizeof(CRED) / sizeof(CRED[0]))
 
 static const char * const BUILT[] = {
-    "30,000+ lines of C",
-    "65 source modules, 0 libs",
+    "32,000+ lines of C",
+    "67 source modules, 0 libs",
     "Open Watcom C, 386 real mode",
     /* -we, not -wx.  -wx is the warning LEVEL; the compiler prints the
        warning and exits 0.  The build was corrected everywhere else when
@@ -254,7 +254,7 @@ static void page_about(const Rect *cl, int y0)
     ui_text_center(cx, y0, cw,
                    CAST_COMPANY " LLC", C_DKGRAY);                    y0 += lh;
     ui_text_center(cx, y0, cw,
-                   "30,000+ lines of C, 65 modules",
+                   "32,000+ lines of C, 67 modules",
                    C_DKGRAY);                                         y0 += lh;
     if (g_secret)
         ui_text_center(cx, y0, cw, "Fiat lux!  - D.A.", C_RED);

@@ -28,6 +28,10 @@ void        crit_error_install(void);
    once at start-up; DOS restores the vector itself at exit. */
 void        ctrl_break_install(void);
 
+/* Flush DOS and SMARTDRV write caches and warm-boot the machine.  Call in
+   text mode, after every file is closed.  Does not return. */
+void        sys_reboot(void);
+
 /* The home (start-up) directory.  The Disk Cabinet chdir()s as the user
    browses, so data files opened by bare name would land wherever the
    user is standing; capture once in main() from argv[0] (the
