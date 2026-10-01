@@ -94,7 +94,7 @@ static void opl_write(int reg, int val)
 
 bool_t opl_present(void)
 {
-    int s1, s2, i;
+    int s1, s2;
     if (g_state >= 0)
         return g_state ? TRUE : FALSE;
 
