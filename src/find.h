@@ -38,6 +38,7 @@ bool_t find_poll_open(char *dir, int dcap, char *name, int ncap);
    NAME matches, anything else additionally opens each of those files and
    keeps only the ones containing that text, case-insensitively. */
 void   find_run(const char *pattern, const char *text);
+void   find_release(void);   /* window closed: free the search block */
 
 /* F4 on a result: the caller should show that FOLDER in the Disk
    Cabinet.  TRUE once per press, with the folder in `dir`. */

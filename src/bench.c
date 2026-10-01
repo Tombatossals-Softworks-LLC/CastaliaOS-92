@@ -12,6 +12,7 @@
  * it again.  All integer maths, no coprocessor, no assembly.
  * ====================================================================== */
 #include <i86.h>
+#include <dos.h>       /* _dos_allocmem / _dos_freemem                    */
 #include <stdio.h>
 #include "bench.h"
 #include "video.h"
@@ -55,8 +56,12 @@ static bool_t        g_trashed = FALSE;
 static volatile unsigned long g_sink  = 0;
 static unsigned long          g_start = 0;   /* tick results appeared (charge)*/
 
-static unsigned long          far bench_a[MBUF];
-static volatile unsigned long far bench_b[MBUF];
+/* The two 8 KB buffers exist only while bench_run() is timing.  As static
+   far arrays they sat in the EXE image - 16 KB of conventional memory
+   held for the whole session by an applet that runs for two seconds, on
+   a machine that has 14 KB free with the desktop up. */
+static unsigned long          far *bench_a;
+static volatile unsigned long far *bench_b;
 
 static unsigned long ticks(void) { return sys_ticks(); }
 
@@ -72,6 +77,18 @@ void bench_run(void)
 {
     unsigned long t0, n;
     int i, k;
+    unsigned seg;
+
+    /* Both buffers in one block: 2 x 8 KB = 1024 paragraphs. */
+    if (_dos_allocmem((unsigned)(2UL * MBUF * 4UL / 16UL), &seg) != 0) {
+        for (k = 0; k < NT; ++k)
+            g_raw[k] = 0;                         /* "not yet measured"      */
+        g_done  = TRUE;
+        g_start = sys_ticks();
+        return;
+    }
+    bench_a = (unsigned long far *)MK_FP(seg, 0);
+    bench_b = (volatile unsigned long far *)MK_FP(seg, MBUF * 4);
 
     for (k = 0; k < MBUF; ++k)                    /* prime the memory buffer */
         bench_a[k] = (unsigned long)k * 2654435761UL;
@@ -114,6 +131,10 @@ void bench_run(void)
         g_sink = s; ++n;
     }
     g_raw[3] = n;
+
+    _dos_freemem(seg);                            /* memory tests are done   */
+    bench_a = 0;
+    bench_b = 0;
 
     /* 5. Video fill: full-width solid fills into the back buffer. */
     n = 0; t0 = align_tick();

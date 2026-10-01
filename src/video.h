@@ -85,6 +85,13 @@ bool_t video_init(const char *mode);
 /* Restores the original text mode and frees the back buffer. */
 void   video_shutdown(void);
 
+/* Free the back buffer and scene cache for the length of a launched DOS
+   program (call in text mode), then take them back; FALSE = DOS could not
+   give the back buffer back (a TSR the program left behind), and the
+   shell cannot continue.  The scene cache returns empty. */
+void   video_release_buffers(void);
+bool_t video_reclaim_buffers(void);
+
 /* Drop to 80x25 text mode (mode 3) - used before shelling to DOS. */
 void   video_text_mode(void);
 

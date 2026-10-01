@@ -109,6 +109,19 @@ static bool_t ensure_mem(void)
     return TRUE;
 }
 
+/* The 12 KB queue + results block goes back to DOS when the window
+   closes; it used to stay allocated for the rest of the session after a
+   single search. */
+void find_release(void)
+{
+    if (g_seg != 0)
+        _dos_freemem(g_seg);
+    g_seg  = 0;
+    g_dirs = (char far *)0;
+    g_res  = (FRes far *)0;
+    g_nres = g_scanned = 0;
+}
+
 /* near -> far / far -> near bounded string copies (no far strcpy in the
    medium model's small-data world). */
 static void to_far(char far *dst, const char *src, int cap)

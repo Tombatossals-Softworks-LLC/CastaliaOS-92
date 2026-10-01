@@ -57,6 +57,10 @@ bool_t      desktop_key(int key, int *launch);
    Settings panel).  A NULL or empty wallpaper path turns tiling off. */
 void        desktop_set_pattern(const char *p);
 void        desktop_set_wallpaper(const char *path);
+
+/* Free the decoded GIF wallpaper and mark the scene cache stale, for the
+   length of a launched program; desktop_set_wallpaper() reloads it. */
+void        desktop_release_buffers(void);
 void        desktop_swap_bitmaps(int a, int b);
 
 /* Small footprints for partial presents: an icon cell (with its focus

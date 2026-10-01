@@ -611,6 +611,46 @@ void video_graphics_mode(void)
     video_set_theme("classic");
 }
 
+/* Hand the frame buffers back to DOS while a launched program runs, and
+   take them back afterwards.  Resident, they were 128 KB (Mode 13h:
+   back buffer + scene cache) to 300 KB (Mode 12h) of conventional memory
+   the child could not have - on a real 386SX/16 that left it 14 KB.
+   Nothing may draw between the two calls: the caller is in text mode.
+   The scene cache comes back EMPTY; the desktop must rebuild it. */
+void video_release_buffers(void)
+{
+    int p;
+    if (g_back_seg != 0)  { _dos_freemem(g_back_seg);  g_back_seg = 0;  }
+    if (g_plane_seg != 0) { _dos_freemem(g_plane_seg); g_plane_seg = 0; }
+    if (g_cache_seg != 0) { _dos_freemem(g_cache_seg); g_cache_seg = 0; }
+    g_back = (u8 far *)0;
+    for (p = 0; p < 4; ++p)
+        g_plane[p] = (u8 far *)0;
+}
+
+bool_t video_reclaim_buffers(void)
+{
+    if (g_mode == MODE_12) {
+        int p;
+        if (g_plane_seg == 0 && _dos_allocmem(9600, &g_plane_seg) != 0) {
+            g_plane_seg = 0;
+            return FALSE;
+        }
+        for (p = 0; p < 4; ++p)
+            g_plane[p] = (u8 far *)MK_FP(g_plane_seg + (unsigned)p * 2400, 0);
+    } else {
+        if (g_back_seg == 0 && _dos_allocmem(4000, &g_back_seg) != 0) {
+            g_back_seg = 0;
+            return FALSE;
+        }
+        g_back = (u8 far *)MK_FP(g_back_seg, 0);
+    }
+    if (g_cache_seg == 0 &&
+        _dos_allocmem((g_mode == MODE_12) ? 9600 : 4000, &g_cache_seg) != 0)
+        g_cache_seg = 0;               /* optional, exactly as at start-up */
+    return TRUE;
+}
+
 void video_shutdown(void)
 {
     bios_set_mode(0x03);
