@@ -69,7 +69,10 @@ done
 # A release binary from an older version is the drift that actually hurts
 # users: they run the EXE, not the sources.  The version string is baked
 # into the About box, so grepping the image for it is enough to catch a
-# binary that shipped a whole version behind.
+# binary that shipped a whole version behind.  -n 3: strings defaults to
+# runs of four or more, and "1.0" - the roadmap's goal - is three, so the
+# check would have failed forever at the release it exists for.  -F: the
+# version is a literal, not a regex ("1.0" also matched "130").
 echo "==> release/CASTALIA.EXE is built from this version"
 V=$(grep -oE 'CAST_VERSION[[:space:]]+"[0-9.]+"' src/castalia.h |
     grep -oE '[0-9]+\.[0-9]+')
@@ -77,7 +80,7 @@ if [ -z "$V" ]; then
   flag "could not read CAST_VERSION from src/castalia.h"
 elif [ ! -f release/CASTALIA.EXE ]; then
   flag "release/CASTALIA.EXE is missing"
-elif ! strings -a release/CASTALIA.EXE | grep -qx "$V"; then
+elif ! strings -a -n 3 release/CASTALIA.EXE | grep -qFx "$V"; then
   flag "release/CASTALIA.EXE does not carry version $V (run: wmake release)"
 else
   echo "    version $V"

@@ -310,7 +310,8 @@ ASSETS\ICONS\MINE.ICN, then point a desktop or [shortcut] icon at it.
 
 RUNNING BIG GAMES (FREE-MEMORY LAUNCH)
 --------------------------------------
-Normally Castalia stays in memory (~120 KB) while a launched program runs.
+Normally Castalia stays in memory (most of conventional memory: the EXE
+alone is ~400 KB) while a launched program runs.
 For a memory-hungry DOS game that is too much.  Mark its [shortcut] with
 
         freemem=true

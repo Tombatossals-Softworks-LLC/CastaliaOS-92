@@ -292,7 +292,11 @@ echo "==> every src/*.c is wired into Makefile + BUILD.BAT + castalia.lnk"
 for c in src/*.c; do
   b=$(basename "$c" .c)
   grep -q "$b\.obj"  Makefile      || flag "Makefile: $b.obj not listed"
-  grep -qiE "\b$b\b" BUILD.BAT     || flag "BUILD.BAT: $b not listed"
+  # On a FOR ... wcc line, not just anywhere: the header comment names
+  # "video, font, window and ui", so a bare grep passed with those four
+  # dropped from the compile lines.
+  grep -iE "^for .* do wcc " BUILD.BAT | grep -qiE "\b$b\b" \
+                                   || flag "BUILD.BAT: $b not compiled"
   grep -qiE "\b$b\b" castalia.lnk  || flag "castalia.lnk: $b not listed"
 done
 
@@ -305,6 +309,18 @@ grep -q -- "-we" Makefile  || flag "Makefile: -we missing (warnings not fatal)"
 for n in $(grep -c -- "wcc " BUILD.BAT); do :; done
 bad=$(grep -- "wcc " BUILD.BAT | grep -vc -- "-we" || true)
 [ "${bad:-0}" -eq 0 ] || flag "BUILD.BAT: $bad wcc line(s) without -we"
+
+# MS-DOS COMMAND.COM truncates batch lines at 127 characters, after
+# variable expansion.  Three BUILD.BAT lines (128, 186, 155) did exactly
+# that on real DOS - seventeen modules silently uncompiled - while the
+# Windows cmd.exe that CI and most developers use accepts 8191.
+echo "==> batch lines fit COMMAND.COM's 127 characters (after %CF%)"
+for bat in BUILD.BAT INSTALL.BAT CASTSHEL.BAT; do
+  cf=$(tr -d '\r' < "$bat" | sed -n 's/^set CF=//p' | head -n1)
+  long=$(tr -d '\r' < "$bat" | sed "s/%CF%/$cf/g; s/%%/%/g" |
+         awk -v f="$bat" 'length($0) > 127 { printf "%s:%d: %d chars\n", f, NR, length($0) }')
+  if [ -n "$long" ]; then echo "$long"; flag "$bat: line(s) over 127 characters"; fi
+done
 
 echo "==> every src/*.h is a Makefile header dependency"
 for h in src/*.h; do

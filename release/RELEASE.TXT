@@ -830,7 +830,7 @@ BUILD PROVENANCE
     Toolchain : Open Watcom C/C++  (wcc / wlink)
     Target    : DOS, 16-bit real mode, medium memory model (-mm)
     CPU       : 386 instruction scheduling (-3)
-    Optimise  : size (-os), maximum warnings (-wx) - builds with zero
+    Optimise  : size (-os), maximum warnings, fatal (-wx -we) - builds with zero
                 warnings.
     To rebuild from source see BUILD.TXT in the project root (wmake, or
     BUILD.BAT under Open Watcom on DOS).

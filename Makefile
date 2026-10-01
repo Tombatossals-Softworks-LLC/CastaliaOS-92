@@ -19,7 +19,7 @@
 
 CC      = wcc
 # -os (optimise for SIZE) everywhere: the .EXE has to fit conventional
-# memory alongside DOS, and most of these 62 modules are applet code that
+# memory alongside DOS, and most of these 65 modules are applet code that
 # runs once per user action, where size beats speed every time.
 # -we: warnings ARE errors.  -wx alone is only the maximum warning
 # LEVEL - it prints W112 "Pointer truncated" and then exits 0.  W112 is
@@ -30,7 +30,7 @@ CFLAGS  = -bt=dos -mm -3 -os -zq -wx -we
 # ...except the four modules that ARE the inner loop.  Every pixel the
 # shell draws goes through video.c, every character through font.c, every
 # window compose through window.c and ui.c, up to 18 times a second.  For
-# those, -otexan (favour time, expand inline, no aliasing assumptions)
+# those, -otexan (favour time, expand inline, assume no pointer aliasing)
 # buys loop unrolling and strength reduction that -os declines, and the
 # handful of kilobytes it costs is the best-spent space in the build.
 CFLAGS_FAST = -bt=dos -mm -3 -otexan -zq -wx -we
