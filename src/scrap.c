@@ -11,7 +11,7 @@
 #include "keyboard.h"
 #include "filedlg.h"
 #include "textscan.h"  /* text_needle: the same fold Find File uses */
-#include "system.h"    /* sys_temp_name / sys_commit_file (safe save) */
+#include "system.h"    /* sys_save_open / sys_commit_file (safe save) */
 
 /* FAR, and four times the size.  The document buffer was the single
    largest thing left in DGROUP - 4096 bytes of a 57344-byte segment the
@@ -170,8 +170,7 @@ static bool_t scrap_save(const char *path)
        mid-save destroyed the only copy.  Now a failed save leaves the
        file on disk exactly as it was.
        Text mode: the C library re-expands our bare LFs to DOS CRLF. */
-    sys_temp_name(tmp, (int)sizeof(tmp), path);
-    f = fopen(tmp, "w");
+    f = sys_save_open(path, tmp, (int)sizeof(tmp), "w");
     if (f == NULL) {
         dialog_message("Save", "Could not write file.", path);
         return FALSE;
@@ -180,12 +179,12 @@ static bool_t scrap_save(const char *path)
         int    off = 0;
         bool_t io_bad = FALSE;
         while (off < g_len) {
-            char tmp[SCRAP_IO];
+            char chunk[SCRAP_IO];      /* not "tmp": that names the file */
             int  k, run = g_len - off;
             if (run > SCRAP_IO) run = SCRAP_IO;
             for (k = 0; k < run; ++k)
-                tmp[k] = g_buf[off + k];
-            if (fwrite(tmp, 1, (size_t)run, f) != (size_t)run) {
+                chunk[k] = g_buf[off + k];
+            if (fwrite(chunk, 1, (size_t)run, f) != (size_t)run) {
                 io_bad = TRUE;
                 break;
             }

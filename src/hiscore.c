@@ -82,8 +82,7 @@ static void hi_save(void)
     /* Through a temp file: fopen("w") on the real one truncated it first,
        so a full disk mid-write used to destroy every score. */
     sys_home_path(p, (int)sizeof(p), HI_FILE);
-    sys_temp_name(tmp, (int)sizeof(tmp), p);
-    f = fopen(tmp, "w");
+    f = sys_save_open(p, tmp, (int)sizeof(tmp), "w");
     if (f == NULL)
         return;
     for (i = 0; i < g_n; ++i)

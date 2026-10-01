@@ -37,11 +37,14 @@ void        sys_capture_home(const char *argv0);
 const char *sys_home(void);
 void        sys_home_path(char *out, int cap, const char *name);
 
-/* Safe saves: write to sys_temp_name(path) ("NOTES.TXT" -> "NOTES.TM$",
-   same folder), then sys_commit_file() flushes, DOS-commits and closes
-   it and swaps it in for `path`.  FALSE means the new file did not make
-   it; unless the final rename failed, the original is untouched. */
-void        sys_temp_name(char *out, int cap, const char *path);
+/* Safe saves.  sys_save_open() opens what to write (a temp file beside an
+   existing `path` - "NOTES.TXT" -> "NOTES.TM$" - or `path` itself when it
+   is new) and names it in tmp (cap bytes).  sys_commit_file() flushes,
+   DOS-commits and closes it and puts it in place.  FALSE means the new
+   file did not make it and nothing half-written was left; the original,
+   if there was one, is untouched. */
+FILE       *sys_save_open(const char *path, char *tmp, int cap,
+                          const char *mode);
 bool_t      sys_commit_file(FILE *f, const char *tmp, const char *path);
 
 /* The BIOS 18.2 Hz tick counter, read straight from the BIOS data area

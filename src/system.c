@@ -296,11 +296,14 @@ unsigned long system_total_ram_kb(void)
 /* ----------------------------------------------------------------------
  * Safe saves.  fopen(path, "w") truncates the real file before a byte of
  * the new one exists, so a full disk, a pulled floppy or a power cut in
- * the middle of a save destroyed the only copy.  Write to a temp name in
- * the same folder instead, push it through to the disk, and only then
- * swap it in.  The swap is two directory operations, not a whole write.
+ * the middle of a save destroyed the only copy.  When there IS a copy to
+ * lose, the new one is written to a temp name in the same folder, pushed
+ * through to the disk, and only then swapped in - two directory
+ * operations, not a whole write.  A brand-new file has nothing to
+ * protect and is written in place; either way a failed save removes what
+ * it wrote, so nothing half-written is ever left behind.
  * -------------------------------------------------------------------- */
-void sys_temp_name(char *out, int cap, const char *path)
+static void temp_name(char *out, int cap, const char *path)
 {
     int n = (int)strlen(path), dot = -1, i;
     for (i = 0; i < n; ++i) {
@@ -316,6 +319,50 @@ void sys_temp_name(char *out, int cap, const char *path)
     for (i = 0; i < dot; ++i)
         out[i] = path[i];
     strcpy(out + i, ".TM$");
+}
+
+FILE *sys_save_open(const char *path, char *tmp, int cap, const char *mode)
+{
+    FILE *f = fopen(path, "rb");
+    if (f != NULL) {
+        fclose(f);
+        temp_name(tmp, cap, path);     /* an original to protect          */
+    } else {
+        int i;
+        for (i = 0; path[i] != '\0' && i < cap - 1; ++i)
+            tmp[i] = path[i];          /* new: tmp names the file itself  */
+        tmp[i] = '\0';
+    }
+    return fopen(tmp, mode);
+}
+
+/* Last resort when the swap's rename fails: copy the finished temp file
+   over the original, rather than strand the good copy under a name
+   nobody will look for. */
+static bool_t copy_over(const char *tmp, const char *path)
+{
+    char buf[512];
+    FILE *in, *out;
+    size_t n;
+    bool_t ok = TRUE;
+    in = fopen(tmp, "rb");
+    if (in == NULL)
+        return FALSE;
+    out = fopen(path, "wb");
+    if (out == NULL) {
+        fclose(in);
+        return FALSE;
+    }
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0)
+        if (fwrite(buf, 1, n, out) != n) { ok = FALSE; break; }
+    if (ferror(in))
+        ok = FALSE;
+    fclose(in);
+    if (fclose(out) != 0)
+        ok = FALSE;
+    if (ok)
+        remove(tmp);
+    return ok;
 }
 
 bool_t sys_commit_file(FILE *f, const char *tmp, const char *path)
@@ -338,8 +385,12 @@ bool_t sys_commit_file(FILE *f, const char *tmp, const char *path)
         remove(tmp);                   /* the original was never touched   */
         return FALSE;
     }
+    if (strcmp(tmp, path) == 0)        /* a new file, written in place     */
+        return TRUE;
     remove(path);                      /* rename() will not replace        */
-    return (rename(tmp, path) == 0) ? TRUE : FALSE;
+    if (rename(tmp, path) == 0)
+        return TRUE;
+    return copy_over(tmp, path);
 }
 
 /* ---- BIOS tick counter & CPU idle ------------------------------------ */

@@ -376,15 +376,15 @@ case_full() {
 }
 
 # -------------------------------------------------------------- nosave
-# A save that FAILED must not mark the document saved.
+# A save that FAILED must not mark the document saved - and must not
+# leave half a file behind.
 #
-# The Scrap Box clears its dirty flag only when scrap_save returns TRUE,
-# and that is the whole defence: fopen("w") truncates before a byte goes
-# out, so a full disk leaves a short file on disk while the real document
-# is still in memory - and if the applet believed it was saved, Shut Down
-# would take it without asking and the only copy left would be the
-# truncated one.  hiscore.c carries a comment about the same mistake
-# being made there once.
+# The Scrap Box clears its dirty flag only when scrap_save returns TRUE:
+# if the applet believed a failed save had worked, Shut Down would take
+# the document without asking.  Saves go through sys_save_open() now, so
+# a brand-new file that runs out of disk is removed again (and an
+# existing one is never touched - the new copy goes to a temp name), so
+# the case also checks that no BIG.TXT and no BIG.TM$ is left on A:.
 #
 # A: is a 160 KB image with about a kilobyte free, because an EMPTY 160 KB
 # floppy is not full enough: the Scrap Box caps a document at 4 KB.
@@ -414,10 +414,10 @@ case_nosave() {
       K Escape 2.0
       sleep 3
     ' >/dev/null 2>&1
-    short=$(python3 "$SELF/fatls.py" "$OUT/a_nosave.img" 2>/dev/null | grep -c "^BIG.TXT")
-    if [ ! -e "$(disk nosave)/EXITED.TXT" ] && [ "$short" = 1 ]
-    then ok "nosave: a save that ran out of disk leaves the document unsaved"
-    else bad "nosave: the failed save was treated as done (exited=$( [ -e "$(disk nosave)/EXITED.TXT" ] && echo yes || echo no), file=$short)"; fi
+    left=$(python3 "$SELF/fatls.py" "$OUT/a_nosave.img" 2>/dev/null | grep -c "^BIG\.")
+    if [ ! -e "$(disk nosave)/EXITED.TXT" ] && [ "$left" = 0 ]
+    then ok "nosave: a save that ran out of disk leaves the document unsaved, and no half file"
+    else bad "nosave: the failed save was treated as done or left a file (exited=$( [ -e "$(disk nosave)/EXITED.TXT" ] && echo yes || echo no), files=$left)"; fi
 }
 
 # ------------------------------------------------------------ scrapbig

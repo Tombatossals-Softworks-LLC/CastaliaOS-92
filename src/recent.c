@@ -146,8 +146,7 @@ void recent_save(void)
     int i;
     char p[132], tmp[132];
     sys_home_path(p, (int)sizeof(p), RECENT_FILE);
-    sys_temp_name(tmp, (int)sizeof(tmp), p);
-    f = fopen(tmp, "w");               /* swapped in by sys_commit_file    */
+    f = sys_save_open(p, tmp, (int)sizeof(tmp), "w");
     if (f == NULL)
         return;                        /* a lost convenience, not an error */
     for (i = 0; i < g_n; ++i) {
