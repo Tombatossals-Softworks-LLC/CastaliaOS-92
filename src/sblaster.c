@@ -210,7 +210,11 @@ bool_t sb_play_8bit(const unsigned char far *samples, unsigned nsamp, unsigned r
     {
         unsigned long q = 1000000UL / rate;
         if (q > 250UL) q = 250UL;
+        if (q < 16UL)  q = 16UL;          /* 62.5 kHz: past any SB DSP     */
         tc = 256 - (unsigned)q;
+        /* Time the wait at the rate the DSP will REALLY run - the clamped,
+           rounded time constant's - not the one asked for. */
+        rate = (unsigned)(1000000UL / q);
     }
     dsp_write(g_base, 0xD1);
     dsp_write(g_base, 0x40);

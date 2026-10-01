@@ -215,7 +215,9 @@ static void probe_mem(void)
     /* system.c already speaks XMS (it calls the driver's entry point for
        the true above-1MB figure, then falls back to INT 15h) - reuse it. */
     g_conv_kb = system_conventional_kb();
-    g_ext_kb  = (unsigned long)system_extended_kb();
+    /* Fitted, not free: with HIMEM loaded the XMS figure is what is LEFT,
+       and "RAM" (base + this) came out short of the real machine. */
+    g_ext_kb  = (unsigned long)system_ext_installed_kb();
 
     r.w.ax = 0x4300;                   /* XMS driver installed?            */
     int86(0x2F, &r, &r);
@@ -350,9 +352,12 @@ static void probe_ports(void)
     for (i = 0; i < 4; ++i) g_com[i] = bda[i];
     for (i = 0; i < 3; ++i) g_lpt[i] = bda[4 + i];
 
-    r.w.ax = 0;
-    int86(0x33, &r, &r);
-    g_mouse = (r.w.ax == 0xFFFF) ? TRUE : FALSE;
+    /* The shell already knows whether a driver answered at start-up.  A
+       fresh AX=0 here was a full driver RESET mid-session (slow on PS/2
+       drivers, and it zeroes the press counters the event loop reads),
+       and it was issued even with the mouse disabled in the INI - through
+       a vector that may be 0000:0000 when no driver is loaded. */
+    g_mouse = system_has_mouse();
     g_mv_hi = g_mv_lo = 0;
     if (g_mouse) {
         r.w.ax = 0x24;
@@ -394,14 +399,25 @@ static void probe_all(void)
 /* ---- the benchmark ----------------------------------------------------- */
 
 /* Runs a 386SX/16 completes in the 4-tick window for each sub-test - the
-   empirical anchors that turn a raw run count into an "x times a 386SX/16"
-   index.  Approximate by design: the datum machine is itself a rough peg. */
-#define SCALE_ALU    260UL
-#define SCALE_MUL     95UL
-#define SCALE_MCOPY  210UL
-#define SCALE_MREAD  330UL
-#define SCALE_VFILL   45UL
-#define SCALE_VLINE   30UL
+   anchors that turn a raw run count into an "x times a 386SX/16" index.
+   ALU, MUL and the two video kernels are the same code as the Benchmark
+   applet's and carry its MEASURED real-hardware counts (a 386SX/16, 4 MB,
+   MS-DOS 7.10); the old DOSBox-tuned values made the datum machine score
+   about 0.6x itself.  The two memory kernels differ from the Benchmark's
+   (a 32 KB REP MOVSD, and a C read loop over 32 KB, not 8 KB) and have
+   NOT been measured on hardware yet:
+     MREAD - the Benchmark's identical loop read 8 KB 39 times on the
+             real machine, so 32 KB lands near 10.  (330 implied ~48 MB/s
+             through a C loop on a 16-bit bus at 16 MHz - impossible.)
+     MCOPY - estimated from the bus: REP MOVSD on an SX moves a dword in
+             about 12-16 clocks, ~30 passes of 32 KB per window.
+   Photograph the Oracle's raw counts on the 386SX/16 to pin these two. */
+#define SCALE_ALU     64UL
+#define SCALE_MUL     35UL
+#define SCALE_MCOPY   30UL
+#define SCALE_MREAD   10UL
+#define SCALE_VFILL   67UL
+#define SCALE_VLINE   32UL
 #define SCALE_SPIN 11600UL             /* spin loops/tick on a 386SX/16    */
 
 /* Spin to the next tick edge, then reset the timer origin.  Every sub-test

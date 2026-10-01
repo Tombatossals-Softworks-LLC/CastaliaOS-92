@@ -1,9 +1,9 @@
 /* ======================================================================
  * puzzle.c - Sliding 15-puzzle minigame for CASTALIA/386
  * ====================================================================== */
-#include <i86.h>
 #include <stdio.h>
 #include "puzzle.h"
+#include "system.h"    /* sys_ticks                                      */
 #include "video.h"
 #include "ui.h"
 #include "keyboard.h"
@@ -13,14 +13,6 @@
 static int      g_board[16];     /* 0 = the gap, 1..15 = tiles            */
 static int      g_moves = 0;
 static unsigned g_seed  = 1;
-
-static unsigned long ticks(void)
-{
-    union REGS r;
-    r.h.ah = 0x00;
-    int86(0x1A, &r, &r);
-    return ((unsigned long)r.x.cx << 16) | (unsigned long)r.x.dx;
-}
 
 static unsigned rnd(void)
 {
@@ -42,7 +34,11 @@ void puzzle_open(void)
     int i, e = 15;
     for (i = 0; i < 16; ++i)
         g_board[i] = (i + 1) & 15;        /* 1..15 then 0                  */
-    g_seed = (unsigned)ticks() | 1u;
+    /* sys_ticks, not INT 1Ah AH=00h: that call also READS AND CLEARS the
+       BIOS midnight flag (AL), and DOS only advances its date when it is
+       the one to see that flag - the first shuffle after midnight made
+       the clock and calendar show yesterday. */
+    g_seed = (unsigned)sys_ticks() | 1u;
     /* Shuffle by 400 random legal slides from solved -> always solvable.
        Use the HIGH bits of the LCG (its low bits have a tiny period, which
        would cycle the gap back to the start and leave the board solved). */

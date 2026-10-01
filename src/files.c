@@ -13,6 +13,7 @@
 #include <dos.h>       /* _dos_findfirst / _dos_findnext / _dos_*drive   */
 #include <direct.h>    /* chdir / getcwd / mkdir / rmdir                 */
 #include <stdio.h>     /* fopen/fread/fwrite, rename, remove, sprintf    */
+#include <stdlib.h>    /* _fullpath (same-file and same-drive tests)     */
 #include <string.h>
 #include "files.h"
 #include "video.h"
@@ -918,6 +919,50 @@ static bool_t same_path(const char *a, const char *b)
     return TRUE;
 }
 
+/* Room for any DOS path _fullpath can produce: drive, a 64-character
+   directory and an 8.3 name, with slack.  CFG_PATH_LEN (64) is NOT enough
+   - getcwd into a 64-byte buffer fails outright in a deep folder and left
+   the old same-file guards comparing uninitialised stack. */
+#define FULL_LEN 96
+
+/* Canonical absolute form of a path - drive, current folder, "." and ".."
+   all resolved by the C library - so that "REPORT.DOC" typed in the
+   current folder and "C:\WORK\REPORT.DOC" compare as the same file. */
+static bool_t full_of(char *out, const char *path)
+{
+    return (_fullpath(out, path, FULL_LEN) != NULL) ? TRUE : FALSE;
+}
+
+static bool_t same_drive(const char *a, const char *b)
+{
+    char ca = a[0], cb = b[0];
+    if (ca >= 'a' && ca <= 'z') ca = (char)(ca - 32);
+    if (cb >= 'a' && cb <= 'z') cb = (char)(cb - 32);
+    return (ca == cb) ? TRUE : FALSE;
+}
+
+/* Can src (a name in the current folder) be moved to dst?  Asked BEFORE
+   anything is deleted, because both refusals used to be discovered by
+   rename() only after the approved "Replace?" had already removed dst:
+     onto itself  - dst WAS the source, so the file was simply gone;
+     other drive  - rename cannot cross drives, so the old destination
+                    was destroyed and nothing moved. */
+#define MV_OK     0
+#define MV_SAME   1
+#define MV_XDRIVE 2
+#define MV_BAD    3
+static int move_check(const char *src, const char *dst)
+{
+    char a[FULL_LEN], b[FULL_LEN];
+    if (!full_of(a, src) || !full_of(b, dst))
+        return MV_BAD;
+    if (same_path(a, b))
+        return MV_SAME;
+    if (!same_drive(a, b))
+        return MV_XDRIVE;
+    return MV_OK;
+}
+
 static bool_t copy_file(const char *src, const char *dst)
 {
     FILE *fi, *fo;
@@ -932,17 +977,8 @@ static bool_t copy_file(const char *src, const char *dst)
        the single-file path collides if the suggested COPY_OF name is
        typed back to the original's. */
     {
-        char here[CFG_PATH_LEN];
-        int  k = 0, j = 0;
-        getcwd(here, (int)sizeof(here));
-        k = (int)strlen(here);
-        if (k > 0 && here[k - 1] != '\\' && here[k - 1] != '/' &&
-            here[k - 1] != ':' && k < (int)sizeof(here) - 1)
-            here[k++] = '\\';
-        while (src[j] != '\0' && k < (int)sizeof(here) - 1)
-            here[k++] = src[j++];
-        here[k] = '\0';
-        if (same_path(here, dst))
+        char a[FULL_LEN], b[FULL_LEN];
+        if (!full_of(a, src) || !full_of(b, dst) || same_path(a, b))
             return FALSE;
     }
 
@@ -1017,35 +1053,54 @@ static void op_rename(void)
 /* dir + '\\' + entry i's name.  One builder, so the collision scan and
    the copy that follows it can never disagree about where a file is
    going. */
-static void dest_path(char *out, int cap, const char *dir, int i)
+/* FALSE when the result did not fit.  A silently clipped name is not a
+   smaller path, it is a DIFFERENT one: in a deep enough folder
+   REPORT1.DOC and REPORT2.DOC both came out as "...\REPO", and the bulk
+   move then removed the first file it had just moved to make room for
+   the second. */
+static bool_t dest_path(char *out, int cap, const char *dir, int i)
 {
-    int k = 0, j = 0;
+    int k = 0, j = 0, dl = (int)strlen(dir);
     char nm[NAME_LEN];
     _fstrncpy(nm, g_ent[i].name, NAME_LEN - 1);
     nm[NAME_LEN - 1] = '\0';
-    while (dir[k] != '\0' && k < cap - 2) { out[k] = dir[k]; ++k; }
+    out[0] = '\0';
+    if (dl + 1 + (int)strlen(nm) + 1 > cap)
+        return FALSE;
+    while (dir[k] != '\0') { out[k] = dir[k]; ++k; }
     if (k > 0 && out[k - 1] != '\\' && out[k - 1] != '/' && out[k - 1] != ':')
         out[k++] = '\\';
-    while (nm[j] != '\0' && k < cap - 1) out[k++] = nm[j++];
+    while (nm[j] != '\0') out[k++] = nm[j++];
     out[k] = '\0';
+    return TRUE;
 }
 
 static void bulk_to_folder(bool_t moving)
 {
     char dir[CFG_PATH_LEN], q[48];
     int  n = marked_count(), i, failed = 0, skipped = 0;
+    dir[0] = '\0';                     /* the picker seeds its field here */
     sprintf(q, "%s %d tagged item%s to",
             moving ? "Move" : "Copy", n, (n == 1) ? "" : "s");
     if (!filedlg_folder(q, dir, sizeof(dir)) || dir[0] == '\0')
         return;
     {   /* Caught here too, so the whole operation is refused with a
            sentence rather than reported as N failures afterwards. */
-        char here[CFG_PATH_LEN];
-        getcwd(here, (int)sizeof(here));
-        if (same_path(here, dir)) {
+        char here[FULL_LEN], there[FULL_LEN];
+        if (!full_of(here, ".") || !full_of(there, dir)) {
+            dialog_message(moving ? "Move" : "Copy",
+                           "DOS cannot find that folder.", dir);
+            return;
+        }
+        if (same_path(here, there)) {
             dialog_message(moving ? "Move" : "Copy",
                            "That is the folder they are",
                            "already in.");
+            return;
+        }
+        if (moving && !same_drive(here, there)) {
+            dialog_message("Move", "DOS cannot move files across",
+                           "drives. Copy them instead.");
             return;
         }
     }
@@ -1059,10 +1114,11 @@ static void bulk_to_folder(bool_t moving)
         int clash = 0;
         for (i = 0; i < g_count; ++i) {
             FILE *ex;
-            char dst[CFG_PATH_LEN];
+            char dst[FULL_LEN];
             if (!g_ent[i].marked || is_dotdot(i) || g_ent[i].is_dir)
                 continue;
-            dest_path(dst, sizeof(dst), dir, i);
+            if (!dest_path(dst, sizeof(dst), dir, i))
+                continue;                  /* refused in the loop below    */
             ex = fopen(dst, "rb");
             if (ex != NULL) { fclose(ex); ++clash; }
         }
@@ -1076,21 +1132,26 @@ static void bulk_to_folder(bool_t moving)
         }
     }
     for (i = 0; i < g_count; ++i) {
-        char src[NAME_LEN], dst[CFG_PATH_LEN];
+        char src[NAME_LEN], dst[FULL_LEN];
         if (!g_ent[i].marked || is_dotdot(i))
             continue;
         if (g_ent[i].is_dir) { ++skipped; continue; }   /* files only */
         _fstrncpy(src, g_ent[i].name, NAME_LEN - 1);
         src[NAME_LEN - 1] = '\0';
-        dest_path(dst, sizeof(dst), dir, i);
-        /* rename() FAILS on an existing destination rather than
-           replacing it, so a move the user has just approved needs the
-           old one out of the way first - exactly what single-file Move
-           does. */
-        if (moving)
+        if (!dest_path(dst, sizeof(dst), dir, i)) { ++failed; continue; }
+        if (moving) {
+            /* rename() FAILS on an existing destination rather than
+               replacing it, so a move the user has just approved needs
+               the old one out of the way first - but only once the move
+               is known to be possible (same drive, not onto itself; the
+               folder-level checks above make both hold for every file). */
+            if (move_check(src, dst) != MV_OK) { ++failed; continue; }
             remove(dst);
-        if (moving ? (rename(src, dst) != 0) : !copy_file(src, dst))
+            if (rename(src, dst) != 0)
+                ++failed;
+        } else if (!copy_file(src, dst)) {
             ++failed;
+        }
     }
     if (failed > 0 || skipped > 0) {
         sprintf(q, "%d failed, %d folder(s) skipped.", failed, skipped);
@@ -1163,23 +1224,40 @@ static void op_move(void)
         return;
     if (dst[0] == '\0')
         return;
-    /* rename() silently replaces nothing - it FAILS on an existing
-       destination - but it also happily renames a file onto itself and
-       reports success, so the useful check is the one Copy does: warn
-       before a clobber that would otherwise just look like a failure. */
+    /* A near copy of the source name: dialog_confirm's modal loop can
+       repaint the list, and the repaint rotates ent_name()'s buffer. */
     {
-        FILE *ex = fopen(dst, "rb");
-        if (ex != NULL) {
-            fclose(ex);
-            if (dialog_confirm("Move", "Replace the existing file?",
-                               dst) != DLG_YES)
-                return;
-            remove(dst);
+        char nm[NAME_LEN];
+        strcpy(nm, ent_name(g_sel));
+        switch (move_check(nm, dst)) {
+        case MV_SAME:                  /* moving a file onto itself: done */
+            return;
+        case MV_XDRIVE:
+            dialog_message("Move", "DOS cannot move a file across",
+                           "drives. Copy it instead.");
+            return;
+        case MV_BAD:
+            dialog_message("Move", "DOS cannot find that place.", dst);
+            return;
+        default:
+            break;
         }
+        /* rename() FAILS on an existing destination, so an approved
+           replace removes the old file first - safe now that the move is
+           known to be on one drive and not onto itself. */
+        {
+            FILE *ex = fopen(dst, "rb");
+            if (ex != NULL) {
+                fclose(ex);
+                if (dialog_confirm("Move", "Replace the existing file?",
+                                   dst) != DLG_YES)
+                    return;
+                remove(dst);
+            }
+        }
+        if (rename(nm, dst) != 0)
+            dialog_message("Move", "Move failed.", dst);
     }
-    if (rename(ent_name(g_sel), dst) != 0)
-        dialog_message("Move", "Move failed. DOS cannot move",
-                       "a file across drives.");
     files_rescan();
 }
 

@@ -40,6 +40,8 @@ if not exist %CTGT%\NUL md %CTGT%
 if not exist %CTGT%\ASSETS\NUL md %CTGT%\ASSETS
 if not exist %CTGT%\ASSETS\ICONS\NUL md %CTGT%\ASSETS\ICONS
 if not exist %CTGT%\ASSETS\THEMES\NUL md %CTGT%\ASSETS\THEMES
+if not exist %CTGT%\ASSETS\MEDIA\NUL md %CTGT%\ASSETS\MEDIA
+if not exist %CTGT%\NUL goto nodir
 
 copy CASTALIA.EXE %CTGT% > NUL
 if exist CASTSHEL.BAT copy CASTSHEL.BAT %CTGT% > NUL
@@ -48,6 +50,9 @@ if exist README.TXT copy README.TXT %CTGT% > NUL
 if exist ASSETS\ICONS\*.ICN copy ASSETS\ICONS\*.ICN %CTGT%\ASSETS\ICONS > NUL
 if exist ASSETS\ICONS\*.ICO copy ASSETS\ICONS\*.ICO %CTGT%\ASSETS\ICONS > NUL
 if exist ASSETS\ICONS\*.GIF copy ASSETS\ICONS\*.GIF %CTGT%\ASSETS\ICONS > NUL
+if exist ASSETS\MEDIA\*.* copy ASSETS\MEDIA\*.* %CTGT%\ASSETS\MEDIA > NUL
+if exist ASSETS\THEMES\*.* copy ASSETS\THEMES\*.* %CTGT%\ASSETS\THEMES > NUL
+if not exist %CTGT%\CASTALIA.EXE goto nocopy
 
 echo   Installed files:
 dir %CTGT% /w
@@ -68,6 +73,8 @@ echo   (Load a mouse driver first - MOUSE.COM, CTMOUSE.EXE or similar - if
 echo    you want to use the pointer.  Castalia needs at least 1 MB of RAM.)
 echo.
 if "%2"=="PATH" goto dopath
+if "%2"=="path" goto dopath
+if "%2"=="Path" goto dopath
 echo   To run CASTALIA from any directory, add this line to AUTOEXEC.BAT
 echo   yourself, or re-run as  INSTALL %CTGT% PATH  to have it added:
 echo.
@@ -93,6 +100,18 @@ goto end
 :noexe
 echo   ERROR: CASTALIA.EXE was not found in the current directory.
 echo   Change to the folder that contains CASTALIA.EXE and run INSTALL again.
+echo.
+goto end
+
+:nodir
+echo   ERROR: could not create %CTGT%.
+echo   MD makes one level at a time: create the parent folder first.
+echo.
+goto end
+
+:nocopy
+echo   ERROR: CASTALIA.EXE did not reach %CTGT% - is the disk full
+echo   or write protected?  Nothing was changed in AUTOEXEC.BAT.
 echo.
 
 :end

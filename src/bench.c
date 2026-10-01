@@ -25,18 +25,28 @@
 #define BAR_CAP  500UL                  /* index that fills a bar (486-class)*/
 #define MBUF     2048                   /* dwords in each memory buffer (8KB)*/
 
-/* Per-test raw counts and the 386SX/16 anchors (index 100 == "1.00x").  The
-   integer/video anchors are the Oracle's measured kernels; the memory
-   anchors are for these C far-pointer loops and are approximate. */
+/* Per-test raw counts and the 386SX/16 anchors (index 100 == "1.00x").
+   MEASURED on real iron: a 386SX/16 with 4 MB under MS-DOS 7.10 returned
+   exactly these six counts.  The old anchors (260/95/100/180/45/30) had
+   been tuned under DOSBox at cycles=1100, which charges every instruction
+   alike: they over-rated the integer and memory kernels 2.7-4.6x (a 32-bit
+   IMUL and a dword access over the SX's 16-bit bus are far dearer on the
+   real chip) and under-rated the fills, so the datum machine itself
+   scored 59 - "286 / early-386 class" - instead of 100. */
 static unsigned long g_raw[NT];
 static const unsigned long SCALE[NT] =
-    { 260UL, 95UL, 100UL, 180UL, 45UL, 30UL };
+    { 64UL, 35UL, 24UL, 39UL, 67UL, 32UL };
 static const char *const LAB[NT] =
     { "ALU", "Integer", "Mem copy", "Mem read", "Vid fill", "Vid line" };
 static const u8 COL[NT] =
     { C_BLUE, C_CYAN, C_GREEN, C_YELLOW, C_TITLE, C_RED };
 
 static bool_t        g_done  = FALSE;
+/* The video kernels paint the top 100 rows in ABSOLUTE coordinates, over
+   every window and the desktop.  The Oracle's twin raises a flag so the
+   shell recomposes the whole scene; this one did not, and a re-run left
+   colour bands on everything but its own window. */
+static bool_t        g_trashed = FALSE;
 /* volatile: the ALU/hash/read kernels store their result here and the copy
    kernel's destination is volatile too, so the -os optimiser cannot treat
    the timed work as dead stores and hollow out the loops (which would time
@@ -123,8 +133,16 @@ void bench_run(void)
     }
     g_raw[5] = n;
 
-    g_done  = TRUE;
-    g_start = sys_ticks();
+    g_done    = TRUE;
+    g_trashed = TRUE;
+    g_start   = sys_ticks();
+}
+
+bool_t bench_poll_damage(void)
+{
+    bool_t d = g_trashed;
+    g_trashed = FALSE;
+    return d;
 }
 
 /* Index (x100) of a raw count against its 386SX/16 anchor. */

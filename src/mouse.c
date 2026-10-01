@@ -93,6 +93,15 @@ bool_t mouse_init(void)
 {
     union REGS r;
 
+    /* With no driver loaded, some DOS/BIOS combinations leave INT 33h at
+       0000:0000; calling it jumps into the interrupt table and hangs the
+       boot - and the mouse is on by default.  (oracle.c checks INT 67h
+       the same way before its EMS call.) */
+    if (*(const unsigned long far *)MK_FP(0, 0x33 * 4) == 0UL) {
+        g_present = FALSE;
+        return FALSE;
+    }
+
     r.x.ax = 0x0000;              /* reset / detect                       */
     int86(0x33, &r, &r);
     if (r.x.ax != 0xFFFF) {

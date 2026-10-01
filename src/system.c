@@ -3,6 +3,7 @@
  * ====================================================================== */
 #include <i86.h>
 #include <dos.h>
+#include <conio.h>     /* inp / outp (the CMOS memory count)             */
 #include <stdio.h>
 #include <string.h>
 #include <direct.h>    /* getcwd (the home-directory capture)            */
@@ -19,8 +20,28 @@
  * -------------------------------------------------------------------- */
 static char g_home[68] = "";           /* "C:\CASTALIA"; DOS paths <= 66  */
 
-void sys_capture_home(void)
+/* Home is the folder CASTALIA.EXE was loaded from, NOT the current one.
+   INSTALL puts Castalia on the PATH, and typed from C:\ the old getcwd()
+   capture made C:\ "home": the INI came back as defaults and every save
+   (INI, high scores, recent list, CASTRUN.BAT) landed in the root.  DOS
+   3+ hands every program its full load path, which the C library passes
+   on as argv[0]; the current directory is only the fallback. */
+void sys_capture_home(const char *argv0)
 {
+    int i, cut = -1;
+    if (argv0 != NULL && argv0[0] != '\0' && argv0[1] == ':') {
+        for (i = 0; argv0[i] != '\0'; ++i)
+            if (argv0[i] == '\\' || argv0[i] == '/')
+                cut = i;
+        if (cut >= 2 && cut < (int)sizeof(g_home) - 1) {
+            for (i = 0; i < cut; ++i)
+                g_home[i] = argv0[i];
+            if (cut == 2)              /* "C:\CASTALIA.EXE" -> "C:\"     */
+                g_home[i++] = '\\';
+            g_home[i] = '\0';
+            return;
+        }
+    }
     if (getcwd(g_home, (int)sizeof(g_home)) == NULL)
         g_home[0] = '\0';              /* fall back to relative names     */
 }
@@ -109,6 +130,25 @@ static int __far crit_handler(unsigned deverr, unsigned errcode,
 void crit_error_install(void)
 {
     _harderr(crit_handler);
+}
+
+/* ----------------------------------------------------------------------
+ * Ctrl+C / Ctrl+Break.  DOS looks for both inside every console call -
+ * the kbhit() and getch() the event loop makes on every pass included -
+ * and its default INT 23h handler simply terminates the program: no
+ * video_shutdown, the screen left in Mode 13h (black, after a fade), the
+ * speaker gate open, buffered saves never flushed.  A handler that just
+ * IRETs tells DOS to resume the interrupted call as if nothing happened.
+ * INT 23h is one of the vectors DOS restores from the PSP when a program
+ * ends, so there is nothing to unhook on any exit path.
+ * -------------------------------------------------------------------- */
+static void __interrupt __far ctrlc_isr(void)
+{
+}
+
+void ctrl_break_install(void)
+{
+    _dos_setvect(0x23, ctrlc_isr);
 }
 
 #define SYS_MAX_LINES 16
@@ -222,11 +262,84 @@ static unsigned extended_kb(void)
     return r.x.ax;                 /* AX = KB above 1 MB                   */
 }
 
+/* Extended memory the BIOS counted at POST, from CMOS 30h/31h.  The two
+   probes above both answer a different question once HIMEM is loaded:
+   AH=88h says 0, and XMS function 08h says how much is FREE.  Adding the
+   free figure to base memory is what made a 4 MB 386SX report "Total RAM
+   3658 KB" on real hardware.  Interrupts off around the index/data pair,
+   since the BIOS RTC handler also drives port 70h. */
+static unsigned cmos_ext_kb(void)
+{
+    unsigned lo, hi;
+    _disable();
+    outp(0x70, 0x30);
+    lo = inp(0x71);
+    outp(0x70, 0x31);
+    hi = inp(0x71);
+    _enable();
+    return (hi << 8) | lo;
+}
+
+static unsigned installed_ext_kb(void)
+{
+    unsigned c = cmos_ext_kb(), x = extended_kb();
+    return (c >= x) ? c : x;           /* a blank CMOS falls back          */
+}
+
 unsigned long system_total_ram_kb(void)
 {
     /* (unsigned long): with lots of extended memory the plain 16-bit sum
        wraps at 64 MB and the splash/panel would report nonsense. */
-    return (unsigned long)conventional_kb() + (unsigned long)extended_kb();
+    return (unsigned long)conventional_kb() + (unsigned long)installed_ext_kb();
+}
+
+/* ----------------------------------------------------------------------
+ * Safe saves.  fopen(path, "w") truncates the real file before a byte of
+ * the new one exists, so a full disk, a pulled floppy or a power cut in
+ * the middle of a save destroyed the only copy.  Write to a temp name in
+ * the same folder instead, push it through to the disk, and only then
+ * swap it in.  The swap is two directory operations, not a whole write.
+ * -------------------------------------------------------------------- */
+void sys_temp_name(char *out, int cap, const char *path)
+{
+    int n = (int)strlen(path), dot = -1, i;
+    for (i = 0; i < n; ++i) {
+        if (path[i] == '.')
+            dot = i;
+        else if (path[i] == '\\' || path[i] == '/' || path[i] == ':')
+            dot = -1;                  /* a dot in a folder name is not it */
+    }
+    if (dot < 0)
+        dot = n;
+    if (dot > cap - 5)
+        dot = cap - 5;
+    for (i = 0; i < dot; ++i)
+        out[i] = path[i];
+    strcpy(out + i, ".TM$");
+}
+
+bool_t sys_commit_file(FILE *f, const char *tmp, const char *path)
+{
+    bool_t bad = ferror(f) ? TRUE : FALSE;
+    if (fflush(f) != 0) {
+        bad = TRUE;
+    } else {
+        /* INT 21h AH=68h (DOS 3.3+): commit the handle, so the data is on
+           the disk - not in a write-behind cache - before the old file
+           goes.  Older DOS just returns an error; nothing is lost. */
+        union REGS r;
+        r.h.ah = 0x68;
+        r.x.bx = (unsigned)fileno(f);
+        int86(0x21, &r, &r);
+    }
+    if (fclose(f) != 0)
+        bad = TRUE;
+    if (bad) {
+        remove(tmp);                   /* the original was never touched   */
+        return FALSE;
+    }
+    remove(path);                      /* rename() will not replace        */
+    return (rename(tmp, path) == 0) ? TRUE : FALSE;
 }
 
 /* ---- BIOS tick counter & CPU idle ------------------------------------ */
@@ -244,16 +357,93 @@ unsigned long sys_ticks(void)
 
 /* sys_idle() is an in-line intrinsic; see the pragma in system.h. */
 
+/* ----------------------------------------------------------------------
+ * Sample pacing off PIT channel 0 (left exactly as the BIOS set it).
+ * Two things the old per-module pit_wait() got wrong:
+ *   - The BIOS runs channel 0 in mode 3 (square wave), where the counter
+ *     drops by TWO per input clock.  Counting latched downticks as clocks
+ *     waited half of every sample period: the PC-speaker and Covox WAV
+ *     paths played at double speed, an octave up.  The mode is taken
+ *     from the counter itself - mode 3 with the BIOS's even divisor only
+ *     ever shows even values, mode 2 shows odd ones too - which works on
+ *     an 8253 without the 8254 read-back command.
+ *   - Each wait was measured from its own start, so the port write, the
+ *     far read and the keyboard poll between samples were added to every
+ *     period - on a 386SX at 11-22 kHz that overhead is the size of the
+ *     period itself.  The deadline is now absolute from sys_pit_start().
+ * -------------------------------------------------------------------- */
+static unsigned      g_pit_step = 0;   /* counter decrements per clock     */
+static unsigned      g_pit_prev = 0;
+static unsigned long g_pit_el   = 0;   /* input clocks since start         */
+
+static unsigned pit_latch(void)
+{
+    unsigned lo, hi;
+    outp(0x43, 0x00);                  /* latch channel 0                  */
+    lo = inp(0x40);
+    hi = inp(0x40);
+    return (hi << 8) | lo;
+}
+
+void sys_pit_start(void)
+{
+    if (g_pit_step == 0) {
+        int i;
+        g_pit_step = 2;
+        for (i = 0; i < 32; ++i)
+            if (pit_latch() & 1)
+                g_pit_step = 1;
+    }
+    g_pit_prev = pit_latch();
+    g_pit_el   = 0;
+}
+
+void sys_pit_until(unsigned long clocks)
+{
+    while (g_pit_el < clocks) {
+        unsigned now = pit_latch();
+        g_pit_el  += (unsigned)(g_pit_prev - now) / g_pit_step;
+        g_pit_prev = now;
+    }
+}
+
+/* ----------------------------------------------------------------------
+ * Coprocessor probe: Intel's FNINIT / FNSTSW sequence, not INT 11h.  The
+ * equipment-word bit is only what the BIOS setup screen was told, and the
+ * Inspector printed it as "80x87 ok" with a green LED.  The no-wait forms
+ * never stall on an absent chip: with no coprocessor nothing is stored
+ * and AX keeps its 5A5Ah marker (or reads floating-bus FFh); a live one
+ * has just been reset, so its status word is 0.  FNSTSW AX is a 287/387
+ * form, which is every coprocessor a 386 board can carry.
+ * If the MSW's EM bit is set, ESC opcodes trap to INT 7 instead, which a
+ * real-mode BIOS does not service - and EM means "no usable FPU" anyway.
+ * -------------------------------------------------------------------- */
+extern unsigned read_msw(void);
+#pragma aux read_msw = \
+    ".386"             \
+    "smsw ax"          \
+    value [ax];
+
+extern unsigned fpu_probe_sw(void);
+#pragma aux fpu_probe_sw = \
+    ".387"                 \
+    "mov  ax, 5A5Ah"       \
+    "fninit"               \
+    "fnstsw ax"            \
+    value [ax]             \
+    modify [ax];
+
 static bool_t coprocessor_present(void)
 {
-    union REGS r;
-    int86(0x11, &r, &r);           /* INT 11h -> AX = equipment word      */
-    return (r.x.ax & 0x0002) ? TRUE : FALSE;   /* bit 1 = math chip       */
+    if (read_msw() & 0x0004)       /* EM: emulate, i.e. no FPU in use     */
+        return FALSE;
+    return ((fpu_probe_sw() & 0x00FF) == 0) ? TRUE : FALSE;
 }
 
 /* ---- public probes (for the System Inspector) ----------------------- */
 unsigned system_conventional_kb(void) { return conventional_kb(); }
 unsigned system_extended_kb(void)     { return extended_kb(); }
+unsigned system_ext_installed_kb(void) { return installed_ext_kb(); }
 unsigned system_free_conv_kb(void)    { return free_conventional_kb(); }
 bool_t   system_fpu_present(void)     { return coprocessor_present(); }
 

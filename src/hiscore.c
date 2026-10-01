@@ -30,7 +30,7 @@ static bool_t g_clipped = FALSE;
 /* Always next to CASTALIA.EXE, never in the last-browsed directory. */
 static FILE *hi_open(const char *mode)
 {
-    char p[80];
+    char p[132];                       /* main.c's size: a deep home fits  */
     sys_home_path(p, (int)sizeof(p), HI_FILE);
     return fopen(p, mode);
 }
@@ -75,21 +75,20 @@ static void hi_load(void)
 static void hi_save(void)
 {
     FILE *f;
-    int   i, bad;
+    int   i;
+    char  p[132], tmp[132];
     if (g_clipped)
         return;                        /* never overwrite what we lost     */
-    f = hi_open("w");
+    /* Through a temp file: fopen("w") on the real one truncated it first,
+       so a full disk mid-write used to destroy every score. */
+    sys_home_path(p, (int)sizeof(p), HI_FILE);
+    sys_temp_name(tmp, (int)sizeof(tmp), p);
+    f = fopen(tmp, "w");
     if (f == NULL)
         return;
     for (i = 0; i < g_n; ++i)
         fprintf(f, "%s %ld\n", g_name[i], g_best[i]);
-    /* fopen("w") already truncated the real file, so a failure here has
-       destroyed it: at least stop claiming the scores are safe. */
-    bad = ferror(f) ? 1 : 0;
-    if (fclose(f) != 0)
-        bad = 1;
-    if (bad)
-        g_clipped = TRUE;              /* do not try again over the wreck  */
+    (void)sys_commit_file(f, tmp, p);  /* failed: the old table stands     */
 }
 
 static int hi_find(const char *game)

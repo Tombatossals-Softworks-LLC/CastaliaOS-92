@@ -15,6 +15,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
+#include <stdio.h>     /* FILE (the safe-save helpers)                   */
 #include "castalia.h"
 
 /* Install a DOS critical-error (INT 24h) handler that fails the call
@@ -22,13 +23,26 @@
    a drive is not ready (e.g. an empty floppy). Call once at start-up. */
 void        crit_error_install(void);
 
+/* Make Ctrl+C / Ctrl+Break harmless (an INT 23h that resumes the call)
+   instead of DOS's default of killing the shell in graphics mode.  Call
+   once at start-up; DOS restores the vector itself at exit. */
+void        ctrl_break_install(void);
+
 /* The home (start-up) directory.  The Disk Cabinet chdir()s as the user
    browses, so data files opened by bare name would land wherever the
-   user is standing; capture once in main(), then anchor names with
-   sys_home_path (out gets "C:\CASTALIA\NAME"; cap includes the NUL). */
-void        sys_capture_home(void);
+   user is standing; capture once in main() from argv[0] (the
+   folder the EXE was loaded from), then anchor names with sys_home_path
+   (out gets "C:\CASTALIA\NAME"; cap includes the NUL). */
+void        sys_capture_home(const char *argv0);
 const char *sys_home(void);
 void        sys_home_path(char *out, int cap, const char *name);
+
+/* Safe saves: write to sys_temp_name(path) ("NOTES.TXT" -> "NOTES.TM$",
+   same folder), then sys_commit_file() flushes, DOS-commits and closes
+   it and swaps it in for `path`.  FALSE means the new file did not make
+   it; unless the final rename failed, the original is untouched. */
+void        sys_temp_name(char *out, int cap, const char *path);
+bool_t      sys_commit_file(FILE *f, const char *tmp, const char *path);
 
 /* The BIOS 18.2 Hz tick counter, read straight from the BIOS data area
    (0040:006C) with a torn-read guard.  This replaces the old per-module
@@ -48,9 +62,19 @@ void        sys_idle(void);
     "sti"              \
     "hlt";
 
-/* Total system RAM in KB: conventional (INT 12h) + extended (INT 15h/88h).
-   On 386-class machines the 384 KB above 640 KB is reported as extended,
-   so a 1 MB board totals ~1024 KB. Used by the start-up memory gate.
+/* CPU-speed-independent sample pacing off PIT channel 0 (1193180 Hz
+   input clock).  sys_pit_start() opens a timeline; sys_pit_until(t) spins
+   until t input clocks have passed since then.  Deadlines are absolute,
+   so per-sample work between waits does not stretch the period.  Poll
+   at least every ~25 ms (the counter wraps). */
+void        sys_pit_start(void);
+void        sys_pit_until(unsigned long clocks);
+
+/* Total system RAM in KB: conventional (INT 12h) + the extended memory the
+   BIOS counted at POST (CMOS 30h/31h - never the FREE XMS figure, which is
+   all the HIMEM-era probes return).  On 386-class machines the 384 KB
+   above 640 KB is reported as extended, so a 1 MB board totals ~1024 KB.
+   Used by the start-up memory gate, the splash and the Inspector.
    (unsigned long: a machine with >64 MB overflows a 16-bit sum.) */
 unsigned long system_total_ram_kb(void);
 
@@ -60,7 +84,8 @@ const char *system_cpu_name(void);
 
 /* Individual memory / disk probes used by the System Inspector. */
 unsigned    system_conventional_kb(void);
-unsigned    system_extended_kb(void);
+unsigned    system_extended_kb(void);      /* FREE XMS (or bare INT 15h) */
+unsigned    system_ext_installed_kb(void); /* extended RAM fitted (CMOS)  */
 unsigned    system_free_conv_kb(void);
 bool_t      system_fpu_present(void);
 void        system_disk_kb(unsigned long *freek, unsigned long *totalk);

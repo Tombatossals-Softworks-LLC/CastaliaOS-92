@@ -170,8 +170,20 @@ bool_t fractal_key(int key)
         return TRUE;
     }
     if (key == 'o' || key == 'O' || key == '-') {  /* zoom out 2x             */
-        if (g_span < (1L << 24))       /* past this the Q-math overflows   */
+        /* 12.0 wide at most.  The old 2^24 cap was far past where the
+           Q12 maths breaks: zr*zr overflows a long once |z| passes ~11.3,
+           which the edge pixels reached three zoom-outs from the start
+           (and Julia mode on its first iteration), and further out
+           g_span*FH and x*g_span overflowed too - a flipped or garbage
+           picture.  At 12.0, |c| and |z0| stay under ~8. */
+        if (g_span * 2L <= 12L * ONE)
             g_span *= 2;
+        /* ...and the centre within +/-2 (all of either set lies there), or
+           a view recentred near an edge would carry |c| past the limit. */
+        if (g_cx >  2L * ONE) g_cx =  2L * ONE;
+        if (g_cx < -2L * ONE) g_cx = -2L * ONE;
+        if (g_cy >  2L * ONE) g_cy =  2L * ONE;
+        if (g_cy < -2L * ONE) g_cy = -2L * ONE;
         g_row = 0;
         return TRUE;
     }

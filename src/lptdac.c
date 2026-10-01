@@ -5,6 +5,7 @@
 #include <conio.h>     /* inp / outp / kbhit / getch                      */
 #include <dos.h>       /* MK_FP                                           */
 #include "lptdac.h"
+#include "system.h"    /* sys_pit_start / sys_pit_until                   */
 
 #define MODE_OFF   0
 #define MODE_COVOX 1
@@ -56,26 +57,6 @@ bool_t lptdac_present(void)  { return (g_mode != MODE_OFF) ? TRUE : FALSE; }
 unsigned lptdac_max_rate(void) { return (g_mode == MODE_DSS) ? DSS_RATE : 0; }
 const char *lptdac_name(void)  { return g_name; }
 
-/* ---- PIT pacing (same trick as the PC-speaker burst in media.c):
-   channel 0 free-runs at 1.19318 MHz, so counting its downticks gives a
-   CPU-speed-independent sample clock. */
-static unsigned pit_count(void)
-{
-    unsigned lo, hi;
-    outp(0x43, 0x00);                  /* latch channel 0                  */
-    lo = inp(0x40);
-    hi = inp(0x40);
-    return (hi << 8) | lo;
-}
-static void pit_wait(unsigned period)
-{
-    unsigned start = pit_count(), now, el;
-    do {
-        now = pit_count();
-        el  = (unsigned)((start - now) & 0xFFFF);     /* ch0 counts down   */
-    } while (el < period);
-}
-
 bool_t lptdac_play(const u8 far *s, int n, unsigned rate)
 {
     int i;
@@ -85,11 +66,14 @@ bool_t lptdac_play(const u8 far *s, int n, unsigned rate)
     if (g_mode == MODE_COVOX) {
         /* Free-running ladder DAC: one byte per sample period.  The port
            keeps the last byte's level, so finish on mid-scale silence. */
-        unsigned period = (unsigned)(1193180UL / (rate ? rate : DSS_RATE));
+        unsigned long period = 1193180UL / (rate ? rate : DSS_RATE);
+        unsigned long due = 0;
+        sys_pit_start();
         for (i = 0; i < n; ++i) {
             outp(g_base, s[i]);
-            pit_wait(period);
-            if (kbhit()) { getch(); break; }
+            due += period;
+            sys_pit_until(due);
+            if ((i & 63) == 0 && kbhit()) { getch(); break; }
         }
         outp(g_base, 128);
     } else {

@@ -9,7 +9,8 @@
 
 static int e_ox[2], e_oy[2];           /* current pupil offsets           */
 static int e_blink;                    /* >0: lids closed for that long   */
-static unsigned long e_next_blink;
+static unsigned long e_since;          /* tick the current phase began    */
+static unsigned long e_wait;           /* ticks it lasts                  */
 static unsigned long e_seed = 0xB11FB11FUL;
 
 static unsigned e_rnd(void)
@@ -23,7 +24,8 @@ void eyes_open(void)
     e_ox[0] = e_oy[0] = e_ox[1] = e_oy[1] = 0;
     e_blink = 0;
     e_seed ^= sys_ticks() | 1UL;
-    e_next_blink = sys_ticks() + 40UL + (e_rnd() % 90U);
+    e_since = sys_ticks();
+    e_wait  = 40UL + (e_rnd() % 90U);
 }
 
 static int e_isqrt(long v)
@@ -82,17 +84,22 @@ bool_t eyes_mouse(const Rect *cl, int mx, int my)
 bool_t eyes_tick(void)
 {
     unsigned long now = sys_ticks();
+    /* Elapsed time, not "now >= deadline": the BIOS count resets to 0 at
+       midnight, and a deadline set in the last seconds before it was never
+       reached again - no more blinks, or the lids shut for good. */
     if (e_blink > 0) {
-        if (now >= e_next_blink) {     /* lids up again                   */
+        if (now - e_since >= e_wait) { /* lids up again                   */
             e_blink = 0;
-            e_next_blink = now + 40UL + (e_rnd() % 90U);
+            e_since = now;
+            e_wait  = 40UL + (e_rnd() % 90U);
             return TRUE;
         }
         return FALSE;
     }
-    if (now >= e_next_blink) {         /* blink!                          */
+    if (now - e_since >= e_wait) {     /* blink!                          */
         e_blink = 1;
-        e_next_blink = now + 3UL;      /* closed for ~1/6 s               */
+        e_since = now;
+        e_wait  = 3UL;                 /* closed for ~1/6 s               */
         return TRUE;
     }
     return FALSE;

@@ -9,6 +9,9 @@
 #include "launcher.h"
 #include "video.h"
 #include "system.h"    /* sys_home / sys_home_path                       */
+#include "music.h"     /* music_stop                                     */
+#include "media.h"     /* media_stop                                     */
+#include "opl.h"       /* opl_silence                                    */
 
 int launcher_run(const char *path, const char *command, const char *theme)
 {
@@ -22,6 +25,14 @@ int launcher_run(const char *path, const char *command, const char *theme)
     /* Remember where we are so the shell's own location is preserved. */
     _dos_getdrive(&saved_drive);
     getcwd(saved_dir, sizeof(saved_dir));
+
+    /* Silence first.  Only the main loop ever advances or stops a note,
+       and it does not run while the child does, so a Music Box tone (the
+       speaker gate left open) or a Gramophone MIDI's sustained FM voices
+       droned through the whole program and its "Press any key". */
+    music_stop();
+    media_stop();
+    opl_silence();
 
     /* Leave the GUI - fading to black first (no-op when animations are
        off), so the desktop dissolves instead of snapping to text mode. */
@@ -62,7 +73,8 @@ int launcher_run(const char *path, const char *command, const char *theme)
 
 /* ----------------------------------------------------------------------
  * Free-memory launch.  For a memory-hungry program (a big game) we do NOT
- * stay resident - that would cost it ~120 KB of conventional memory.
+ * stay resident - that would cost it most of conventional memory (the
+ * EXE alone is ~400 KB; a real 386SX/16 had 14 KB free with us up).
  * Instead we write CASTRUN.BAT and exit; the CASTSHEL.BAT wrapper that
  * launched us runs that file (so the program has ALL of conventional
  * memory) and then relaunches Castalia.  The generated batch returns to
@@ -75,7 +87,7 @@ int launcher_run(const char *path, const char *command, const char *theme)
 bool_t launcher_write_runfile(const char *path, const char *command)
 {
     FILE       *f;
-    char        runp[80];
+    char        runp[132];
     const char *home = sys_home();       /* e.g. "C:\CASTALIA" - captured
                                             at start-up, NOT the browsed
                                             directory we may stand in now */
@@ -96,7 +108,13 @@ bool_t launcher_write_runfile(const char *path, const char *command)
             fprintf(f, "%c:\n", path[0]);          /* switch to its drive  */
         fprintf(f, "cd %s\n", path);
     }
-    fprintf(f, "%s\n", command);                   /* run the program      */
+    /* CALL, so a .BAT program comes back here: without it COMMAND.COM
+       chains into it for good, the two lines below never run, and
+       CASTSHEL is left in the program's folder - where neither its
+       "del CASTRUN.BAT" nor "CASTALIA.EXE" can find anything, dropping
+       the user at DOS with the stale CASTRUN.BAT set to replay next
+       time.  CALL runs a .COM or .EXE exactly as before (DOS 3.3+). */
+    fprintf(f, "call %s\n", command);              /* run the program      */
     if (home[1] == ':')
         fprintf(f, "%c:\n", home[0]);              /* back home drive      */
     fprintf(f, "cd %s\n", home);                   /* back home directory  */

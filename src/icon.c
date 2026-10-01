@@ -70,7 +70,7 @@ static bool_t icon_load_ico(const char *path, IconBitmap far *ic)
     unsigned char rowbuf[512];
     u8            map[256];            /* palette index -> theme slot       */
     static u8 far img[32 * 32];        /* decoded native picture (<=32)     */
-    int  count, i, best = -1, bestscore = -9999;
+    int  count, i, best = -1, bestscore = -32767;
     unsigned long best_off = 0;
     int  w, h, bpp, ncol, rowbytes, y, x;
 
@@ -81,18 +81,27 @@ static bool_t icon_load_ico(const char *path, IconBitmap far *ic)
         fclose(f);                     /* not "reserved 0, type 1"          */
         return FALSE;
     }
-    count = (int)rdu16(dir + 2);
+    /* ICONDIR is reserved(2), type(2), COUNT(2).  This read offset 2 -
+       the type, always 1 - so only the first image of a multi-size .ICO
+       was ever considered and the "closest to 32x32" choice never ran. */
+    count = (int)rdu16(dir + 4);
     if (count < 1) { fclose(f); return FALSE; }
     if (count > 32) count = 32;
 
-    /* Pick the entry closest to 32x32 (ties: the one with more data). */
+    /* Pick the entry closest to 32x32; the data size (a proxy for colour
+       depth) only breaks ties.  It used to be weighed in full at bytes/256,
+       so an uncompressed 256x256 32bpp entry (256 KB: +1024) outscored the
+       32x32 one - and then failed the row-size limit, losing the icon. */
     for (i = 0; i < count; ++i) {
         int ew, score;
         long bytes;
         if (fread(ent, 1, 16, f) != 16) break;
         ew = ent[0] ? ent[0] : 256;
         bytes = (long)rdu32(ent + 8);
-        score = -((ew > 32) ? (ew - 32) * 4 : (32 - ew)) + (int)(bytes >> 8);
+        /* x32 + a 0..31 tie-break: the worst case, 256 px, is -28672,
+           inside a 16-bit int. */
+        score = -((ew > 32) ? (ew - 32) * 4 : (32 - ew)) * 32 +
+                (int)(((bytes >> 8) > 31L) ? 31L : (bytes >> 8));
         if (score > bestscore) {
             bestscore = score;
             best = i;
@@ -124,6 +133,14 @@ static bool_t icon_load_ico(const char *path, IconBitmap far *ic)
     }
 
     ncol = (bpp <= 8) ? (1 << bpp) : 0;
+    {
+        /* biClrUsed: a palette may be SHORTER than 2^bpp, and reading the
+           full size swallowed the first pixel rows as colours. */
+        unsigned long used = rdu32(bih + 32);
+        if (ncol > 0 && used > 0UL && used < (unsigned long)ncol)
+            ncol = (int)used;
+    }
+    memset(map, 0, sizeof(map));       /* indices past a short palette     */
     cache_theme();
     if (ncol > 0) {
         if (fread(pal, 1, (unsigned)(ncol * 4), f) != (unsigned)(ncol * 4)) {
@@ -149,11 +166,18 @@ static bool_t icon_load_ico(const char *path, IconBitmap far *ic)
         /* Read every row so the stream stays aligned (an icon taller than
            32 px still has its top rows on disk); only skip PROCESSING the
            ones that fall outside the 32x32 scratch. */
+        int ty;
         if (fread(rowbuf, 1, (unsigned)rowbytes, f) != (unsigned)rowbytes)
             break;
-        if (dy >= 32) continue;
-        for (x = 0; x < w && x < 32; ++x) {
+        /* A picture larger than 32 is sampled DOWN into the scratch as it
+           decodes (it used to keep only the top-left 32x32 and stretch
+           that); one at or below 32 is stored as is and scaled up below. */
+        ty = (h > 32) ? dy * 32 / h : dy;
+        if (ty >= 32) continue;
+        for (x = 0; x < w; ++x) {
+            int tx = (w > 32) ? x * 32 / w : x;
             u8 v;
+            if (tx >= 32) break;
             if (bpp == 8) {
                 v = map[rowbuf[x]];
             } else if (bpp == 4) {
@@ -180,10 +204,10 @@ static bool_t icon_load_ico(const char *path, IconBitmap far *ic)
             } else if (bpp == 24) {
                 v = nearest_slot(rowbuf[x*3+2], rowbuf[x*3+1], rowbuf[x*3]);
             } else {                   /* 32bpp BGRA                         */
-                if (rowbuf[x*4+3] < 128) { img[dy*32+x] = ICON_TRANSPARENT; continue; }
+                if (rowbuf[x*4+3] < 128) { img[ty*32+tx] = ICON_TRANSPARENT; continue; }
                 v = nearest_slot(rowbuf[x*4+2], rowbuf[x*4+1], rowbuf[x*4]);
             }
-            img[dy * 32 + x] = v;
+            img[ty * 32 + tx] = v;
         }
     }
 
@@ -191,18 +215,25 @@ static bool_t icon_load_ico(const char *path, IconBitmap far *ic)
     rowbytes = ((w + 31) / 32) * 4;
     if (rowbytes <= (int)sizeof(rowbuf)) {
         for (y = 0; y < h; ++y) {
-            int dy = h - 1 - y;
+            int dy = h - 1 - y, ty;
             if (fread(rowbuf, 1, (unsigned)rowbytes, f) != (unsigned)rowbytes)
                 break;
-            if (dy >= 32) continue;
-            for (x = 0; x < w && x < 32; ++x)
+            ty = (h > 32) ? dy * 32 / h : dy;
+            if (ty >= 32) continue;
+            for (x = 0; x < w; ++x) {
+                int tx = (w > 32) ? x * 32 / w : x;
+                if (tx >= 32) break;
                 if ((rowbuf[x >> 3] >> (7 - (x & 7))) & 1)
-                    img[dy * 32 + x] = ICON_TRANSPARENT;
+                    img[ty * 32 + tx] = ICON_TRANSPARENT;
+            }
         }
     }
     fclose(f);
 
-    /* Scale the native w x h picture to the 32x32 IconBitmap (nearest). */
+    /* Scale the scratch picture to the 32x32 IconBitmap (nearest).  A side
+       larger than 32 was already sampled down to exactly 32 above. */
+    if (w > 32) w = 32;
+    if (h > 32) h = 32;
     for (y = 0; y < 32; ++y)
         for (x = 0; x < 32; ++x) {
             int sx = (w == 32) ? x : (x * w) / 32;

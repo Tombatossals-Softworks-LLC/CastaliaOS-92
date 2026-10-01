@@ -24,6 +24,7 @@ static int  g_len, g_cursor, g_cur, g_count;
 
 static int  g_lstart[64];
 static int  g_nlines, g_rows;
+static int  g_wcols = 1;               /* the wrap width of the last draw  */
 
 /* ---- store <-> edit buffer ------------------------------------------ */
 static void load_card(int i)
@@ -131,7 +132,10 @@ static void cards_load(void)
         return;
     g_count = 0;
     base = 0;
-    while ((c = fgetc(f)) != EOF && g_count < NCARDS) {
+    /* Count first: testing it AFTER fgetc swallowed one character past
+       the sixteenth card, so a short seventeenth vanished without
+       g_clipped ever being set - and the next flush deleted it. */
+    while (g_count < NCARDS && (c = fgetc(f)) != EOF) {
         if (c == '\f') {                  /* end of this card              */
             g_store[base + k] = '\0';
             ++g_count;
@@ -145,6 +149,10 @@ static void cards_load(void)
             continue;
         if (k < CARD_LEN - 1)
             g_store[base + k++] = (char)c;
+        else
+            g_clipped = TRUE;              /* an over-long card: keep the
+                                              file read-only, as for an
+                                              over-full deck */
     }
     if (k > 0 && g_count < NCARDS) {       /* trailing card, no separator   */
         g_store[base + k] = '\0';
@@ -254,6 +262,7 @@ void card_draw(const Rect *cl)
     cols  = (a.w - 6) / FONT_ADV;
     g_rows = (a.h - 4) / lineh; if (g_rows < 1) g_rows = 1;
     wrap(cols);
+    g_wcols = cols;
 
     cline = line_of(g_cursor);
     scroll = 0;
@@ -369,6 +378,15 @@ bool_t card_click(const Rect *cl, int mx, int my)
 
 bool_t card_key(int key)
 {
+    /* The line table was only rebuilt by card_draw, but load_card,
+       delete_at and del_card change the text under it, and the event loop
+       handles up to sixteen keys between repaints (more while a flip's
+       disk write stalls it).  PgDn then End used the PREVIOUS card's line
+       starts: g_cursor 14 on a 2-character card, and the next letter's
+       memmove ran (size_t)(2 - 14) bytes - most of the data segment. */
+    wrap(g_wcols);
+    if (g_cursor > g_len) g_cursor = g_len;
+    if (g_cursor < 0)     g_cursor = 0;
     if (key >= 32 && key < 127) { insert_char((char)key); return TRUE; }
     switch (key) {
     case KEY_ENTER: insert_char('\n'); return TRUE;

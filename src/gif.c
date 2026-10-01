@@ -75,6 +75,7 @@ static unsigned char far *o_buf;
 static int o_w, o_h, o_maxw, o_maxh;
 static int o_x, o_y, o_pass;
 static bool_t o_interlaced;
+static bool_t o_any;                   /* at least one pixel was emitted   */
 
 static const int PASS_START[4] = { 0, 4, 2, 1 };
 static const int PASS_STEP[4]  = { 8, 8, 4, 2 };
@@ -85,6 +86,7 @@ static void emit(u8 v)
        (wallpaper, Picture Show) read them back with buf + y*w, so using
        maxw as the stride would shear any image narrower than the screen. */
     int stride = (o_w < o_maxw) ? o_w : o_maxw;
+    o_any = TRUE;
     if (o_y < o_maxh && o_x < stride)
         o_buf[(long)o_y * stride + o_x] = v;
     if (++o_x >= o_w) {
@@ -166,7 +168,7 @@ bool_t gif_decode(const char *path, unsigned char far *out,
     if (!lzw_alloc()) { fclose(f); return FALSE; }
 
     o_buf = out; o_w = iw; o_h = ih; o_maxw = maxw; o_maxh = maxh;
-    o_x = 0; o_y = 0; o_pass = 0;
+    o_x = 0; o_y = 0; o_pass = 0; o_any = FALSE;
     o_interlaced = (ipacked & 0x40) ? TRUE : FALSE;
     o_y = o_interlaced ? PASS_START[0] : 0;
 
@@ -233,6 +235,13 @@ bool_t gif_decode(const char *path, unsigned char far *out,
 
     lzw_free();
     fclose(f);
+    /* A stream that decoded to nothing (an immediate end code, or a
+       corrupt first symbol) is a failure.  Reporting success left the
+       caller's buffer holding the PREVIOUS picture, which the wallpaper
+       and the Picture Show then shifted into the DAC window a second
+       time - garbage on screen. */
+    if (!o_any)
+        return FALSE;
     *w = (iw < maxw) ? iw : maxw;
     *h = (ih < maxh) ? ih : maxh;
     return TRUE;

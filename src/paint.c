@@ -282,6 +282,8 @@ bool_t paint_key(int key)
         g_ax = g_ay = -1;              /* a tool change drops the anchor   */
         return TRUE;
     case KEY_DEL:
+        if (g_kx < 0)                  /* no cursor yet: nothing to erase  */
+            return FALSE;
         g_canvas[g_ky * CANVAS + g_kx] = PAINT_TRANS;
         g_dirty = TRUE;
         return TRUE;
@@ -358,16 +360,31 @@ static bool_t paint_save(const char *path)
     return TRUE;
 }
 
-static void paint_load(const char *path)
+/* TRUE when the file was read onto the easel.  On failure the canvas is
+   untouched, and so must be g_file: a rejected name left behind would be
+   the pre-filled target of the next F2, overwriting that file with an
+   unrelated drawing. */
+static bool_t paint_load(const char *path)
 {
     IconBitmap ic;
     int i;
     if (!icon_load(path, &ic)) {
         dialog_message("Load", "Not a 32x32 .ICN file.", path);
-        return;
+        return FALSE;
     }
     for (i = 0; i < CANVAS * CANVAS; ++i)
         g_canvas[i] = ic.px[i];
+    return TRUE;
+}
+
+static void set_file(const char *path)
+{
+    int i = 0;
+    while (path[i] != '\0' && i < (int)sizeof(g_file) - 1) {
+        g_file[i] = path[i];
+        ++i;
+    }
+    g_file[i] = '\0';
 }
 
 /* Open a .ICN straight from a path (the Disk Cabinet's association):
@@ -376,14 +393,10 @@ bool_t paint_ok_to_replace(void) { return ok_to_discard(); }
 
 void paint_open_file(const char *path)
 {
-    int i = 0;
-    while (path[i] != '\0' && i < (int)sizeof(g_file) - 1) {
-        g_file[i] = path[i];
-        ++i;
+    if (paint_load(path)) {
+        set_file(path);
+        g_dirty = FALSE;               /* a freshly loaded file is clean  */
     }
-    g_file[i] = '\0';
-    paint_load(g_file);
-    g_dirty = FALSE;                   /* a freshly loaded file is clean  */
 }
 
 /* ---- interaction ----------------------------------------------------- */
@@ -479,10 +492,13 @@ static void act_new(void)
 
 static void act_load(void)
 {
+    char pick[sizeof(g_file)];
+    strcpy(pick, g_file);
     if (ok_to_discard() &&
-        filedlg("Open a drawing", "*.IC?", g_file,
-                (int)sizeof(g_file), FALSE)) {
-        paint_load(g_file);
+        filedlg("Open a drawing", "*.IC?", pick,
+                (int)sizeof(pick), FALSE) &&
+        paint_load(pick)) {
+        set_file(pick);
         g_dirty = FALSE;               /* a freshly loaded file is clean   */
         retitle();
     }

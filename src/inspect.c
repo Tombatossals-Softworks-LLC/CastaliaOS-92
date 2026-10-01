@@ -47,6 +47,7 @@ static char          insp_cpu[24];
 static bool_t        insp_fpu, insp_mouse, insp_big;
 static unsigned      insp_maj, insp_min;
 static unsigned      insp_conv, insp_free, insp_ext, insp_drive;
+static unsigned      insp_extinst;               /* extended RAM fitted     */
 static unsigned long insp_total, insp_dfree, insp_dtot;
 static unsigned      insp_equip;                 /* INT 11h equipment word  */
 
@@ -71,8 +72,14 @@ static void insp_probe(void)
     dos_ver(&insp_maj, &insp_min);
     insp_conv  = system_conventional_kb();
     insp_free  = system_free_conv_kb();
-    insp_ext   = system_extended_kb();
-    insp_total = (unsigned long)insp_conv + (unsigned long)insp_ext;
+    insp_ext   = system_extended_kb();           /* FREE XMS               */
+    insp_extinst = system_ext_installed_kb();    /* fitted (CMOS)          */
+    if (insp_extinst < insp_ext)
+        insp_extinst = insp_ext;
+    /* Base + FITTED extended memory.  It used to add the FREE XMS figure,
+       so a real 4 MB 386SX read "Total RAM 3658 KB" - and the XMS gauge
+       divided that free figure by this sum, which measured nothing. */
+    insp_total = system_total_ram_kb();
     system_disk_kb(&insp_dfree, &insp_dtot);
     _dos_getdrive(&insp_drive);
     {
@@ -220,9 +227,13 @@ void inspect_draw(const Rect *cl)
         gauge(x0, gy, innerw, "Conv",
               (unsigned long)(insp_conv - insp_free),
               (unsigned long)insp_conv, vbuf, C_BLUE, charge);       gy += lh + 2;
+        /* Same reading as Conv above: the bar is the share IN USE, the
+           figure is what is still free. */
         sprintf(vbuf, "%uK", insp_ext);
-        gauge(x0, gy, innerw, "XMS", (unsigned long)insp_ext,
-              insp_total ? insp_total : 1UL, vbuf, C_GREEN, charge); gy += lh + 2;
+        gauge(x0, gy, innerw, "XMS",
+              (unsigned long)(insp_extinst - insp_ext),
+              insp_extinst ? (unsigned long)insp_extinst : 1UL,
+              vbuf, C_GREEN, charge);                                gy += lh + 2;
         fmt_kb(vbuf, insp_dfree);
         fmt_kb(d2, insp_dtot);
         strcat(vbuf, "/");

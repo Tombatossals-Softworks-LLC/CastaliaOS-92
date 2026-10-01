@@ -11,6 +11,7 @@
 #include "keyboard.h"
 #include "filedlg.h"
 #include "textscan.h"  /* text_needle: the same fold Find File uses */
+#include "system.h"    /* sys_temp_name / sys_commit_file (safe save) */
 
 /* FAR, and four times the size.  The document buffer was the single
    largest thing left in DGROUP - 4096 bytes of a 57344-byte segment the
@@ -157,27 +158,24 @@ void scrap_open(const char *path)
 static bool_t scrap_save(const char *path)
 {
     FILE *f;
+    char  tmp[132];
     if (g_clipped) {
         dialog_message("Save", "This file is longer than the",
                        "Scrap Box holds - not saving.");
         return FALSE;
     }
-    /* Text mode: the C library re-expands our bare LFs to DOS CRLF. */
-    f = fopen(path, "w");
+    /* Into a temp file beside it, swapped in only once complete.  This
+       used to fopen(path, "w"), which truncated the user's document
+       before a byte of the new one existed: a full disk or a power cut
+       mid-save destroyed the only copy.  Now a failed save leaves the
+       file on disk exactly as it was.
+       Text mode: the C library re-expands our bare LFs to DOS CRLF. */
+    sys_temp_name(tmp, (int)sizeof(tmp), path);
+    f = fopen(tmp, "w");
     if (f == NULL) {
         dialog_message("Save", "Could not write file.", path);
         return FALSE;
     }
-    /* Both of these mean the file ON DISK is damaged, and neither said
-       so.  fopen("w") truncated it before a byte was written, so the
-       version that was there is already gone - and "the disk is full"
-       reads like nothing happened, which is the opposite of the truth.
-       The document itself is untouched in memory and still dirty, so
-       the honest instruction is "save it somewhere else".
-
-       Not removed, unlike a failed copy: a copy has its source intact
-       beside it and a truncated binary under a real name is worse than
-       none, while most of a text file is most of the user's work. */
     {
         int    off = 0;
         bool_t io_bad = FALSE;
@@ -195,14 +193,15 @@ static bool_t scrap_save(const char *path)
         }
         if (io_bad || ferror(f)) {
             fclose(f);
-            dialog_message("Save", "Disk full - the file on disk",
-                           "is cut short.  Save elsewhere.");
+            remove(tmp);
+            dialog_message("Save", "Disk full - not saved.  The",
+                           "file on disk is unchanged.");
             return FALSE;
         }
     }
-    if (fclose(f) != 0) {
-        dialog_message("Save", "The file on disk is cut short.",
-                       "Save it somewhere else.");
+    if (!sys_commit_file(f, tmp, path)) {
+        dialog_message("Save", "Not saved - the disk may be",
+                       "full or write protected.");
         return FALSE;
     }
     return TRUE;

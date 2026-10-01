@@ -32,15 +32,21 @@ static void l_press(int x, int y)
     if (y < LW - 1) l_on[(y + 1) * LW + x] ^= 1;
 }
 
+static int l_all_out(void);
+
 static void l_new(void)
 {
     int i, presses = 4 + l_puzzle * 2;
     if (presses > 14) presses = 14;
-    for (i = 0; i < LCELLS; ++i)
-        l_on[i] = 0;
-    for (i = 0; i < presses; ++i)      /* built from a solved board, so   */
-        l_press((int)(l_rnd() % LW),   /* it is solvable by construction  */
-                (int)(l_rnd() % LW));
+    /* Random presses can cancel in pairs (the same cell twice), leaving
+       a "puzzle" that is already solved; deal again until it is not. */
+    do {
+        for (i = 0; i < LCELLS; ++i)
+            l_on[i] = 0;
+        for (i = 0; i < presses; ++i)  /* built from a solved board, so   */
+            l_press((int)(l_rnd() % LW),   /* it is solvable by           */
+                    (int)(l_rnd() % LW));  /* construction                */
+    } while (l_all_out());
     l_moves = 0;
     l_won   = 0;
 }
