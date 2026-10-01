@@ -790,9 +790,13 @@ the program straight from here - no compiler needed.
 WHAT IS IN THIS FOLDER
 ----------------------
     CASTALIA.EXE ......... the program (16-bit real-mode DOS executable)
+    INSTALL.EXE .......... the graphical setup (new to this bundle in
+                           0.56; the source tree has built it since 0.42)
     CASTSHEL.BAT ......... wrapper that adds free-memory game launching
     CASTALIA.INI ......... configuration (theme, icons, launcher entries)
-    INSTALL.BAT .......... optional installer (copies into C:\CASTALIA)
+    INSTALL.BAT .......... the zero-tools installer (type it in full;
+                           plain INSTALL now runs INSTALL.EXE, since DOS
+                           looks for .EXE before .BAT)
     README.TXT ........... the full manual
     ASSETS\ICONS\*.ICN ... sample 32x32 bitmap icons
     ASSETS\THEMES\ ....... (themes are built in; this is for your own notes)
@@ -802,7 +806,8 @@ QUICK START
   Option A - install to the hard disk:
       Copy this whole folder to the PC, then from inside it run:
           INSTALL
-      (or  INSTALL D:\APPS\CAST  to choose another location), then:
+      (the graphical setup; type INSTALL.BAT in full for the batch one,
+      or  INSTALL D:\APPS\CAST  to choose another location), then:
           C:
           CD \CASTALIA
           CASTALIA

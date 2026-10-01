@@ -1,0 +1,11 @@
+# Actions are the only third-party code in this repository - the shell
+# itself has no dependencies at all - so this watches the one surface
+# that can change underneath us.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

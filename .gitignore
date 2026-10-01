@@ -40,8 +40,12 @@
 *.hex
 
 # ...but the shipped, ready-to-run build under release/ IS tracked on
-# purpose, so the repo carries a compiled binary you can copy to a 386.
+# purpose, so the repo carries compiled binaries you can copy to a 386.
+# Both of them: the graphical INSTALL.EXE was built by every wmake and
+# then dropped on the floor - ignored here, never staged, never shipped -
+# so the installer the docs and the press kit advertise reached nobody.
 !release/CASTALIA.EXE
+!release/INSTALL.EXE
 
 # Debug files
 *.dSYM/

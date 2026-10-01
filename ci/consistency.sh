@@ -335,5 +335,62 @@ no=$(grep -oE '[a-z0-9_]+\.obj' Makefile | grep -v '^insmain\.obj$' | sort -u | 
 echo "    $nc source files, $no distinct objects"
 [ "$nc" = "$no" ] || flag "source count ($nc) != Makefile object count ($no)"
 
+echo "==> every numbered screenshot is indexed in README.TXT"
+# The index in README.TXT is the only catalogue of what the shots show,
+# and it is hand-written.  It had silently skipped from 23 to 28: the
+# System Inspector, the Benchmark, the Music Box and the minigames were
+# captured, committed, and then described nowhere.
+on_disk=$(ls docs/screenshots | grep -E '^[0-9]{2}-.*\.png$' | sed 's/\.png$//' | sort)
+indexed=$(grep -oE '^    [0-9]{2}-[a-z0-9-]+\.png' README.TXT |
+          sed 's/^ *//; s/\.png$//' | sort -u)
+unindexed=$(comm -23 <(echo "$on_disk") <(echo "$indexed"))
+phantom=$(comm -13 <(echo "$on_disk") <(echo "$indexed"))
+if [ -n "$unindexed" ]; then
+  flag "screenshots on disk that README.TXT never mentions:"
+  echo "$unindexed" | sed 's/^/      /'
+fi
+if [ -n "$phantom" ]; then
+  flag "screenshots README.TXT indexes that are not in docs/screenshots:"
+  echo "$phantom" | sed 's/^/      /'
+fi
+[ -n "$unindexed$phantom" ] || \
+  echo "    $(echo "$on_disk" | wc -l | tr -d ' ') screenshots, all indexed"
+
+echo "==> README.md counts the screenshots it points at"
+# The shop window says how many shots there are, which is the kind of
+# number nobody re-counts.  It was wrong the day it was written: it named
+# the total while the gallery above it was already showing eight of them.
+shots=$(ls docs/screenshots/*.png 2>/dev/null | wc -l | tr -d ' ')
+if [ ! -f README.md ]; then
+  flag "README.md is missing"
+elif ! grep -q "$shots in all" README.md; then
+  flag "README.md does not say '$shots in all' - docs/screenshots holds $shots"
+else
+  echo "    $shots screenshots, and README.md says so"
+fi
+
+echo "==> the press kit quotes the current version"
+# The press kit is the copy nobody edits during a release, so it is the
+# copy that goes stale: its fact sheet and its roadmap both sat on 0.50
+# for six versions, telling readers about twelve games when there were
+# thirteen, and pointing at a repository that is not this one.
+for f in presskit/FACTSHEET.TXT presskit/ROADMAP.TXT; do
+  if [ ! -f "$f" ]; then
+    flag "$f is missing"
+  elif [ -n "$V" ] && ! grep -q "$V" "$f"; then
+    flag "$f does not mention version $V"
+  fi
+done
+
+echo "==> README.md carries the current version"
+# README.md is the shop window - the page every visitor reads first, and
+# the copy furthest from the code.  Its version badge is checked here for
+# the same reason release/README.TXT is: nothing else would notice.
+if [ ! -f README.md ]; then
+  flag "README.md is missing"
+elif [ -n "$V" ] && ! grep -q "$V" README.md; then
+  flag "README.md does not mention version $V"
+fi
+
 if [ "$fail" -eq 0 ]; then echo "consistency: OK"; else echo "consistency: FAILED"; fi
 exit "$fail"

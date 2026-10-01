@@ -297,14 +297,7 @@ clean : .SYMBOLIC
 # the cycler had moved to Shift+Tab.  ci/release.sh now fails on that
 # class of drift, and this is the target that fixes it.
 release : CASTALIA.EXE .SYMBOLIC
-	cp CASTALIA.EXE release/CASTALIA.EXE
-	cp README.TXT   release/README.TXT
-	rm -rf release/ASSETS
-	/bin/mkdir -p release/ASSETS
-	cp -r assets/icons  release/ASSETS/ICONS
-	cp -r assets/media  release/ASSETS/MEDIA
-	cp -r assets/themes release/ASSETS/THEMES
-	bash ci/release.sh --strict
+	bash ci/stage-release.sh --strict
 
 # ---- every gate, in one command --------------------------------------
 # Each gate lives in its own script, so running them all is a list you

@@ -1,0 +1,80 @@
+name: Regression
+
+# ROADMAP: the last item before v1.0 is "hardened on several real 386/486
+# machines and common mouse drivers".  The half of that which does not
+# need the hardware is behaviour and SPEED, and tools/regress.sh has
+# covered both since 0.55 - eleven cases, each one a bug that was really
+# in the shipped program, every one asserting on what is on the DISK
+# afterwards rather than on pixels.  It ran by hand, when someone
+# remembered.  That is the same "nothing was looking" that let the
+# release README drift three versions, so it runs here now.
+#
+# The slowkeys case is the important one: it drives the real binary at
+# cycles=1100, which is about a 386SX/16 - the low end of what the README
+# claims - and it exists because typing at that speed used to lose more
+# than half its characters.  It is the closest thing this project has to
+# the machine on the workbench.
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: 'Cases to run (space-separated), e.g. "save slowkeys". Empty = all.'
+        required: false
+        default: ''
+
+concurrency:
+  group: regress-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  behaviour:
+    name: Behaviour under DOSBox (incl. 386SX speed)
+    runs-on: ubuntu-latest
+    # A DOSBox boot per case, eleven cases, one of them deliberately run
+    # on a simulated 386SX.  Slow by nature; the ceiling is a hang, not a
+    # target.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Open Watcom
+        uses: open-watcom/setup-watcom@v1
+        with:
+          version: "2.0"
+          tag: "2026-08-01-Build"
+          target: dos
+
+      - name: Build the binary under test
+        run: wmake
+
+      - name: Install the DOSBox harness
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            dosbox xvfb ffmpeg xdotool
+
+      # regress.sh drives the shell through xdotool and asserts on the
+      # files left on C:.  Its own summary line is the verdict; the exit
+      # status follows it.
+      - name: Behavioural regression cases
+        run: bash tools/regress.sh ${{ github.event.inputs.cases }}
+
+      # The cases write their screenshots, DOSBox logs and scratch disks
+      # under shots/.  On a failure that directory is the whole story -
+      # which row got clicked, what the screen looked like, what landed
+      # on the disk - and without it a red run here is unreadable.
+      - name: Upload the evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regress-evidence
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -234,7 +234,7 @@ def file_far_arrays(src):
 
 
 def far_pointers(text):
-    """`T far *p` declared in this text - parameters and locals alike.
+    r"""`T far *p` declared in this text - parameters and locals alike.
 
     [ \t] and not \s: \s matches newlines, so `u8 far *` ending one line
     bound to the first identifier on the NEXT one.  That made near locals

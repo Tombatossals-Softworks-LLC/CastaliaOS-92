@@ -10,7 +10,8 @@ though we love being asked twice:
 
     Press contact ....... hello@tombatossalssoftworks.com
     Web ................. https://www.tombatossalssoftworks.com
-    Source & releases ... https://github.com/davabe/CastaliaOS
+    Source & releases ...
+      https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92
 
 THE PITCH, IN THREE LINES
 -------------------------

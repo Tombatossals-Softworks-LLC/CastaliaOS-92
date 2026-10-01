@@ -6,12 +6,12 @@ PRODUCT
     Name ............... Castalia 92
     What it is ......... A graphical operating environment (desktop
                          shell) for DOS-compatible 386 systems
-    Version at press ... 0.50  (July 2026; the project ships small,
-                         frequent releases on its way to 1.0)
+    Version at press ... 0.56  (the project ships small, frequent
+                         releases on its way to 1.0)
     Price .............. Free
     License ............ MIT (source included)
-    Distribution ....... https://github.com/davabe/CastaliaOS
-                         (source + ready-to-run release folder)
+    Distribution ....... source + a ready-to-run release folder, at
+      https://github.com/Tombatossals-Softworks-LLC/CastaliaOS-92
 
 DEVELOPER
     Studio ............. Tombatossals Softworks LLC
@@ -44,7 +44,7 @@ THE NUMBERS
     Screensaver ........ 16 demoscene effects (plasma, voxel terrain,
                          textured raycaster, kaleidoscope...)
     Wallpapers ......... 8 original GIF wallpapers + tiling papers
-    Source ............. 59 C files, ~22,500 lines of C89
+    Source ............. 65 C files, ~33,000 lines of C89
     External deps ...... none.  Not one library.
 
 ONE-SENTENCE DESCRIPTIONS (PICK YOUR FLAVOUR)

@@ -1,2 +1,45 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# ======================================================================
+# .gitattributes - CASTALIA/386
+# ----------------------------------------------------------------------
+# Text is normalised to LF in the repository (ci/lint.sh enforces LF in
+# the sources), and the binary payloads are declared explicitly.
+#
+# The explicit list is not decoration.  `text=auto` decides text-vs-binary
+# by looking for a NUL byte in the first 8000 bytes, and the 32x32 .ICN
+# icon bitmaps contain none - git classified all eight as TEXT.  On any
+# checkout with core.autocrlf=true (the Windows default) every 0x0A byte
+# inside those bitmaps would have been rewritten to 0x0D 0x0A: corrupted
+# icons, a corrupted release/ mirror, and a byte-comparison in
+# ci/release.sh that would happily agree with itself.  Anything that is
+# not source or documentation is nailed down below.
+# ======================================================================
+
+# Default: detect text, store it LF.
+*                text=auto
+
+# Icons, pictures and animation.
+*.ICN            binary
+*.ICO            binary
+*.GIF            binary
+*.gif            binary
+*.PNG            binary
+*.png            binary
+*.FLC            binary
+*.FLI            binary
+
+# Audio.
+*.MID            binary
+*.WAV            binary
+
+# Built and shipped artefacts.
+*.EXE            binary
+*.exe            binary
+*.OBJ            binary
+*.obj            binary
+*.IMG            binary
+*.img            binary
+
+# .lnk here is NOT a Windows shortcut: castalia.lnk and install/install.lnk
+# are Open Watcom wlink directive files, and ci/consistency.sh reads them
+# as text to check the link list against the Makefile.
+*.lnk            text eol=lf
