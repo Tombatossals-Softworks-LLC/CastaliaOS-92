@@ -31,6 +31,7 @@ bool_t media_key(int key);
 bool_t media_tick(bool_t fg);
 bool_t media_is_playing(void);
 void   media_stop(void);
+void   media_release(void);   /* unload the clip, free its 40 KB buffer */
 
 /* TRUE (once) after the Eject button was clicked: the main loop then pops
    the "Play..." dialog so a new file can be loaded from inside the player. */

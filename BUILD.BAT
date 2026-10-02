@@ -45,7 +45,7 @@ for %%f in (splash quadrix depot timer eyes patience) do wcc %CF% -we -os -fo=sr
 for %%f in (lights settings oracle peek agenda media) do wcc %CF% -we -os -fo=src\%%f.obj src\%%f.c
 for %%f in (flic sblaster opl lptdac gif about pong) do wcc %CF% -we -os -fo=src\%%f.obj src\%%f.c
 for %%f in (calendar g2048 hiscore find recent filedlg) do wcc %CF% -we -os -fo=src\%%f.obj src\%%f.c
-for %%f in (picshow corral typist textscan) do wcc %CF% -we -os -fo=src\%%f.obj src\%%f.c
+for %%f in (picshow corral typist textscan recycle props) do wcc %CF% -we -os -fo=src\%%f.obj src\%%f.c
 echo Linking ...
 wlink @castalia.lnk
 if not exist CASTALIA.EXE goto fail

@@ -7,7 +7,7 @@
  * point: a parabolic integer sine table and an integer square root do all
  * the trigonometry, so it runs on a bare 386SX with no coprocessor.
  * ====================================================================== */
-#include <dos.h>
+#include <dos.h>       /* _dos_allocmem / _dos_freemem / MK_FP */
 #include <string.h>    /* _fmemset (fireworks sky) */
 #include "demo.h"
 #include "video.h"
@@ -48,8 +48,10 @@ static void demo_present(void)
 /* Parabolic integer sine (Bhaskara), amplitude +/-127, period 256.
    The Light Show's lookup tables live in FAR memory: DGROUP (near data,
    shared with the whole shell) is nearly full, and these are only read
-   inside the demo loop where far addressing costs nothing noticeable. */
-static signed char far g_sin[256];
+   inside the demo loop where far addressing costs nothing noticeable.
+   Each table is a far POINTER into one block borrowed from DOS for the
+   length of a session - see "Table memory" above the driver. */
+static signed char far *g_sin;
 static void build_sin(void)
 {
     int i;
@@ -112,11 +114,11 @@ static void caption(const char *name, u8 fg, u8 bg)
 /* =====================================================================
  * 1. Plasma - compute the field once, then flow it by rotating the DAC.
  * =================================================================== */
-static signed char far pl_col[DW];
-static signed char far pl_row[DH];
-static signed char far pl_diag[DW + DH];
-static u8  far pl_map[768];
-static u8  far pl_rain[240 * 3];
+static signed char far *pl_col;        /* [DW]                            */
+static signed char far *pl_row;        /* [DH]                            */
+static signed char far *pl_diag;       /* [DW + DH]                       */
+static u8  far *pl_map;                /* [768]                           */
+static u8  far *pl_rain;               /* [240 * 3]                       */
 
 /* The three-phase rainbow every effect builds its DAC ramp from.  It was
    written out four separate times, and that is exactly how one copy came
@@ -256,7 +258,9 @@ static void copper_step(unsigned frame)
  * 3. Starfield - a warp field flying toward the viewer.
  * =================================================================== */
 #define STARS 420
-static int far st_x[STARS], far st_y[STARS], far st_z[STARS];
+static int far *st_x;                  /* [STARS] each                    */
+static int far *st_y;
+static int far *st_z;
 
 static void star_reset(int i)
 {
@@ -309,7 +313,7 @@ static void starfield_step(u8 far *fb, unsigned frame)
    flame ragged; a per-ROW shift makes it lean and waver.  A table
    because a multiply per pixel is 63000 multiplies a frame, which a
    386SX cannot spare - this is one far byte read and an AND. */
-static u8 far fire_nz[256];
+static u8 far *fire_nz;                /* [256]                           */
 
 static void fire_init(u8 far *fb)
 {
@@ -443,7 +447,7 @@ static void boing_step(u8 far *fb, unsigned frame)
  *    inner loop: per row set up (u,v) and step by fixed-point (cos,sin);
  *    per pixel just two adds and a texture lookup.
  * =================================================================== */
-static u8 far roto_tex[64 * 64];
+static u8 far *roto_tex;               /* [64 * 64]                       */
 
 static void roto_init(u8 far *fb)
 {
@@ -519,10 +523,10 @@ static void tunnel_init(u8 far *fb)
 #define MX_TRAIL 12                      /* streak length (head + 11 shades) */
 #define MX_UNIT  4                       /* speed accumulator threshold      */
 
-static u8  far mtx_ch[MX_COLS * MX_ROWS];  /* glyph in each cell (0 = empty)  */
-static int far mtx_hy[MX_COLS];            /* head row per column (may be <0) */
-static u8  far mtx_spd[MX_COLS];           /* rows advanced per MX_UNIT frames*/
-static u8  far mtx_acc[MX_COLS];           /* speed accumulator               */
+static u8  far *mtx_ch;    /* [MX_COLS * MX_ROWS] glyph per cell (0 = empty) */
+static int far *mtx_hy;    /* [MX_COLS] head row per column (may be <0)      */
+static u8  far *mtx_spd;   /* [MX_COLS] rows advanced per MX_UNIT frames     */
+static u8  far *mtx_acc;   /* [MX_COLS] speed accumulator                    */
 
 static const char far MX_POOL[] =
     "ABCDEFGHJKLMNPRSTUVWXYZ0123456789@#$%&*+=<>?";
@@ -605,9 +609,13 @@ static void matrix_step(u8 far *fb, unsigned frame)
  *    sorted back to front.  Rotation is fixed-point off the sine table.
  * =================================================================== */
 #define VB_N 32
-static int far vb_x0[VB_N], far vb_y0[VB_N], far vb_z0[VB_N];
-static int far vb_sx[VB_N], far vb_sy[VB_N], far vb_sz[VB_N];
-static int far vb_ord[VB_N];
+static int far *vb_x0;                 /* [VB_N] each                     */
+static int far *vb_y0;
+static int far *vb_z0;
+static int far *vb_sx;
+static int far *vb_sy;
+static int far *vb_sz;
+static int far *vb_ord;
 
 static void vball_init(void)
 {
@@ -824,9 +832,11 @@ static void twister_step(u8 far *fb, unsigned frame)
 #define FW_MAXP  224                   /* spark pool                      */
 #define FW_MAXR  3                     /* simultaneous rockets            */
 
-static int far fw_px[FW_MAXP], far fw_py[FW_MAXP];   /* Q4 fixed point    */
-static int far fw_vx[FW_MAXP], far fw_vy[FW_MAXP];
-static u8  far fw_heat[FW_MAXP];                     /* 0 = free slot     */
+static int far *fw_px;                 /* [FW_MAXP] each, Q4 fixed point  */
+static int far *fw_py;
+static int far *fw_vx;
+static int far *fw_vy;
+static u8  far *fw_heat;               /* [FW_MAXP], 0 = free slot        */
 
 static int fw_rx[FW_MAXR], fw_ry[FW_MAXR];           /* rockets (Q4)      */
 static int fw_rvy[FW_MAXR], fw_rtop[FW_MAXR];        /* speed, burst line */
@@ -951,8 +961,11 @@ static const unsigned char wf_e[12][2] = {
     {4, 5}, {5, 6}, {6, 7}, {7, 4},    /* near face  */
     {0, 4}, {1, 5}, {2, 6}, {3, 7}     /* the pillars*/
 };
-static int far wf_sx[8], far wf_sy[8], far wf_sz[8];   /* projected verts */
-static int far wf_stx[WF_STARS], far wf_sty[WF_STARS]; /* fixed stars     */
+static int far *wf_sx;                 /* [8] each, projected verts       */
+static int far *wf_sy;
+static int far *wf_sz;
+static int far *wf_stx;                /* [WF_STARS] each, fixed stars    */
+static int far *wf_sty;
 
 static void wf_init(u8 far *fb)
 {
@@ -1096,9 +1109,9 @@ static void wf_step(u8 far *fb, unsigned frame)
 #define VX_FOG_G  195                  /* into: the pale end of the sky,    */
 #define VX_FOG_B  225                  /* held back so terrain still reads  */
 
-static u8  far vx_h[VX_MAP * VX_MAP];   /* height map  (0..239)             */
-static u8  far vx_c[VX_MAP * VX_MAP];   /* colour map  (DAC slot per cell)  */
-static int far vx_ybuf[DW];             /* per-column highest painted row   */
+static u8  far *vx_h;      /* [VX_MAP * VX_MAP] height map (0..239)         */
+static u8  far *vx_c;      /* [VX_MAP * VX_MAP] colour map (DAC slot/cell)  */
+static int far *vx_ybuf;   /* [DW] per-column highest painted row           */
 
 static int vx_clamp(int v, int lo, int hi)
 {
@@ -1293,7 +1306,7 @@ static const unsigned rc_map[16] = {
 #define RC_STEP16 (RC_STEP * 256 / RC_ONE)  /* march step per direction unit,
                                           Q16.  3 for RC_STEP 24; exact only
                                           while RC_STEP is a multiple of 8. */
-static int far rc_sin[256];
+static int far *rc_sin;                /* [256]                           */
 static void rc_build_sin(void)
 {
     int i;
@@ -1320,11 +1333,11 @@ static int rc_sinq(unsigned aq)
 #define RC_SIN(aq) rc_sinq((unsigned)(aq))
 #define RC_COS(aq) rc_sinq((unsigned)(aq) + 64u * 256u)
 
-static u8 far rc_tex[RC_TEXW * RC_TEXH];  /* per-texel darkness (0 bright)  */
+static u8 far *rc_tex;     /* [RC_TEXW * RC_TEXH] texel darkness (0 bright) */
 /* Ceiling and floor colour per scan line: a function of the row alone, so
    it is baked once instead of recomputed for all 320 columns. */
-static u8 far rc_ceil[DH];
-static u8 far rc_floor[DH];
+static u8 far *rc_ceil;                /* [DH]                            */
+static u8 far *rc_floor;               /* [DH]                            */
 static long rc_px, rc_py;              /* camera position, Q8 map units     */
 static int  rc_ang;                    /* camera heading, 0..255            */
 
@@ -1522,8 +1535,11 @@ static void kaleido_init(u8 far *fb)
 #define RB_PTS   4                     /* corners per ribbon               */
 #define RB_TRAIL 12                    /* afterimages towed behind         */
 
-static int far rb_x[RB_N][RB_TRAIL][RB_PTS];
-static int far rb_y[RB_N][RB_TRAIL][RB_PTS];
+/* One ribbon's whole trail.  rb_x points at RB_N of them, so rb_x[r][t][p]
+   indexes exactly as the [RB_N][RB_TRAIL][RB_PTS] array it replaced. */
+typedef int RbTrail[RB_TRAIL][RB_PTS];
+static RbTrail far *rb_x;
+static RbTrail far *rb_y;
 static int rb_vx[RB_N][RB_PTS], rb_vy[RB_N][RB_PTS];
 static int rb_head;                    /* newest slot in the trail ring    */
 
@@ -1588,6 +1604,157 @@ static void ribbons_step(u8 far *fb, unsigned frame)
     }
     caption("RIBBONS", C_WHITE, C_BLACK);       /* the clear ate the bar   */
     demo_present();                              /* steps that paint, blit  */
+}
+
+/* =====================================================================
+ * Table memory.
+ * =================================================================== */
+/* Every table above is a far POINTER into one block borrowed from DOS
+   when a session starts and handed back when it ends.  As `static far`
+   arrays they were part of the EXE load image: about 48 KB of
+   conventional memory held for the whole run, though nothing reads them
+   outside the Light Show, on a 386SX that has 14 KB free with the
+   desktop up.
+
+   The block is smaller than those arrays were, too.  Only the shared
+   tables - the sine and the plasma set, built once per session and read
+   by several effects - need space of their own.  Every other table is
+   private to one effect and completely rebuilt by that effect's init,
+   which switch_effect always runs before its first step, so the private
+   sets are OVERLAID at one offset: the block is the shared part plus the
+   largest single effect (the voxel maps).  A table that must survive an
+   effect switch - anything built lazily behind a "done" flag - belongs
+   in the shared part, never in the overlay.
+
+   Indexing a far pointer is the same syntax as indexing a far array, so
+   no effect code changed, and every table is still FAR: the near/far
+   rules that already applied (rainbow_ramp's far parameter, pl_rain
+   copied to a near ramp for video_set_dac) apply exactly as before. */
+static unsigned g_demo_seg = 0;        /* 0 = no block (between sessions) */
+
+/* Hand out the next `bytes` of the block at *off and step past them,
+   rounded up to an even size so every int table stays word-aligned. */
+static void far *demo_carve(unsigned long *off, unsigned bytes)
+{
+    void far *p = MK_FP(g_demo_seg, (unsigned)*off);
+    *off += (bytes + 1U) & ~1U;
+    return p;
+}
+
+/* Close one effect's overlay: note how far it reached, rewind to base. */
+static void demo_overlay(unsigned long *off, unsigned long base,
+                         unsigned long *top)
+{
+    if (*off > *top)
+        *top = *off;
+    *off = base;
+}
+
+/* Point every table into the block and return the bytes the layout needs.
+   Run twice: first only to measure (the pointers that pass leaves behind
+   are never used - a failed allocation backs out before any effect runs),
+   then for real once the segment exists.  Measuring the layout itself,
+   rather than keeping a hand-summed size beside it, means the two cannot
+   drift apart when a table is added. */
+static unsigned long demo_layout(void)
+{
+    unsigned long off = 0, base, top;
+
+    /* Shared: built once per session, read by several effects. */
+    g_sin    = (signed char far *)demo_carve(&off, 256);
+    pl_col   = (signed char far *)demo_carve(&off, DW);
+    pl_row   = (signed char far *)demo_carve(&off, DH);
+    pl_diag  = (signed char far *)demo_carve(&off, DW + DH);
+    pl_map   = (u8 far *)demo_carve(&off, 768);
+    pl_rain  = (u8 far *)demo_carve(&off, 240 * 3);
+    base = top = off;
+
+    /* Overlay: one effect's private tables at a time. */
+    st_x     = (int far *)demo_carve(&off, STARS * sizeof(int));
+    st_y     = (int far *)demo_carve(&off, STARS * sizeof(int));
+    st_z     = (int far *)demo_carve(&off, STARS * sizeof(int));
+    demo_overlay(&off, base, &top);
+
+    fire_nz  = (u8 far *)demo_carve(&off, 256);
+    demo_overlay(&off, base, &top);
+
+    roto_tex = (u8 far *)demo_carve(&off, 64 * 64);
+    demo_overlay(&off, base, &top);
+
+    mtx_ch   = (u8 far *)demo_carve(&off, MX_COLS * MX_ROWS);
+    mtx_hy   = (int far *)demo_carve(&off, MX_COLS * sizeof(int));
+    mtx_spd  = (u8 far *)demo_carve(&off, MX_COLS);
+    mtx_acc  = (u8 far *)demo_carve(&off, MX_COLS);
+    demo_overlay(&off, base, &top);
+
+    vb_x0    = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    vb_y0    = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    vb_z0    = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    vb_sx    = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    vb_sy    = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    vb_sz    = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    vb_ord   = (int far *)demo_carve(&off, VB_N * sizeof(int));
+    demo_overlay(&off, base, &top);
+
+    fw_px    = (int far *)demo_carve(&off, FW_MAXP * sizeof(int));
+    fw_py    = (int far *)demo_carve(&off, FW_MAXP * sizeof(int));
+    fw_vx    = (int far *)demo_carve(&off, FW_MAXP * sizeof(int));
+    fw_vy    = (int far *)demo_carve(&off, FW_MAXP * sizeof(int));
+    fw_heat  = (u8 far *)demo_carve(&off, FW_MAXP);
+    demo_overlay(&off, base, &top);
+
+    wf_sx    = (int far *)demo_carve(&off, 8 * sizeof(int));
+    wf_sy    = (int far *)demo_carve(&off, 8 * sizeof(int));
+    wf_sz    = (int far *)demo_carve(&off, 8 * sizeof(int));
+    wf_stx   = (int far *)demo_carve(&off, WF_STARS * sizeof(int));
+    wf_sty   = (int far *)demo_carve(&off, WF_STARS * sizeof(int));
+    demo_overlay(&off, base, &top);
+
+    vx_h     = (u8 far *)demo_carve(&off, VX_MAP * VX_MAP);
+    vx_c     = (u8 far *)demo_carve(&off, VX_MAP * VX_MAP);
+    vx_ybuf  = (int far *)demo_carve(&off, DW * sizeof(int));
+    demo_overlay(&off, base, &top);
+
+    rc_sin   = (int far *)demo_carve(&off, 256 * sizeof(int));
+    rc_tex   = (u8 far *)demo_carve(&off, RC_TEXW * RC_TEXH);
+    rc_ceil  = (u8 far *)demo_carve(&off, DH);
+    rc_floor = (u8 far *)demo_carve(&off, DH);
+    demo_overlay(&off, base, &top);
+
+    rb_x     = (RbTrail far *)demo_carve(&off, RB_N * sizeof(RbTrail));
+    rb_y     = (RbTrail far *)demo_carve(&off, RB_N * sizeof(RbTrail));
+    demo_overlay(&off, base, &top);
+
+    return top;
+}
+
+/* Borrow the block for one session.  FALSE when DOS cannot spare it (or
+   the layout ever outgrew one segment, which plain MK_FP pointers need);
+   the caller then backs out before touching a single table. */
+static bool_t demo_tables_alloc(void)
+{
+    unsigned long need;
+    unsigned seg;
+    need = demo_layout();                        /* measuring pass          */
+    if (need > 65520UL)
+        return FALSE;
+    if (_dos_allocmem((unsigned)((need + 15UL) / 16UL), &seg) != 0)
+        return FALSE;
+    g_demo_seg = seg;
+    (void)demo_layout();                         /* now point into it       */
+    return TRUE;
+}
+
+/* Hand the block back.  Every session exit runs this, so between sessions
+   the Light Show holds no conventional memory at all.  The next session
+   rebuilds every table (build_sin, plasma_build_tables, each effect's
+   init), so nothing has to remember that the old contents are gone. */
+static void demo_tables_free(void)
+{
+    if (g_demo_seg) {
+        _dos_freemem(g_demo_seg);
+        g_demo_seg = 0;
+    }
 }
 
 /* =====================================================================
@@ -1663,6 +1830,24 @@ static int pace_and_poll(unsigned long last)
     }
 }
 
+/* Why the Light Show cannot run, in a bevelled box on the desktop colour,
+   held until any key.  The box is sized to the text: the fixed 300-pixel
+   box it replaces was narrower than the Mode 12h message in the 8-pixel
+   face, which spilled out past its right edge. */
+static void demo_note(const char *msg)
+{
+    int w = font_text_width(msg) + 24;
+    int x = (SCREEN_W - w) / 2;
+    vid_fillrect(0, 0, SCREEN_W, SCREEN_H, C_DESKTOP);
+    vid_fillrect(x, SCREEN_H / 2 - 20, w, 40, C_FACE);
+    vid_bevel(x, SCREEN_H / 2 - 20, w, 40, C_HILIGHT, C_SHADOW);
+    font_draw(x + 12, SCREEN_H / 2 - font_h() / 2, msg, C_BLACK);
+    vid_present();
+    kb_flush();
+    while (kb_poll() == KEY_NONE)
+        sys_idle();                          /* wait for any key, at 0% CPU */
+}
+
 void demo_run(const char *theme)
 {
     u8 far *fb = vid_backbuffer();
@@ -1671,16 +1856,11 @@ void demo_run(const char *theme)
     unsigned long last;
 
     if (fb == (u8 far *)0) {                     /* Mode 12h: not offered   */
-        vid_fillrect(0, 0, SCREEN_W, SCREEN_H, C_DESKTOP);
-        vid_fillrect(SCREEN_W / 2 - 150, SCREEN_H / 2 - 20, 300, 40, C_FACE);
-        vid_bevel(SCREEN_W / 2 - 150, SCREEN_H / 2 - 20, 300, 40, C_HILIGHT, C_SHADOW);
-        font_draw(SCREEN_W / 2 - 138, SCREEN_H / 2 - 6,
-                  "The Light Show needs 256-colour mode (video=mode13h).",
-                  C_BLACK);
-        vid_present();
-        kb_flush();
-        while (kb_poll() == KEY_NONE)
-            sys_idle();                      /* wait for any key, at 0% CPU */
+        demo_note("The Light Show needs 256-colour mode (video=mode13h).");
+        return;
+    }
+    if (!demo_tables_alloc()) {                  /* ~35 KB not free now     */
+        demo_note("Not enough free memory for the Light Show.");
         return;
     }
 
@@ -1708,6 +1888,7 @@ void demo_run(const char *theme)
 
     video_fade_out();                            /* dissolve the effect     */
     video_set_theme(theme);                      /* restore the desktop     */
+    demo_tables_free();
 }
 
 /* The idle screensaver: run effects with no captions, drifting from one to
@@ -1722,6 +1903,8 @@ void demo_screensaver(const char *theme, bool_t have_mouse)
 
     if (fb == (u8 far *)0)
         return;                                  /* Mode 12h: not offered   */
+    if (!demo_tables_alloc())
+        return;                /* no memory: stay on the desktop for now  */
 
     build_sin();
     plasma_build_tables();
@@ -1758,4 +1941,5 @@ void demo_screensaver(const char *theme, bool_t have_mouse)
     video_fade_out();                            /* dissolve back to desktop */
     video_set_theme(theme);
     kb_flush();
+    demo_tables_free();
 }

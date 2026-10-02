@@ -39,6 +39,10 @@ int         files_click(const Rect *client, int mx, int my, bool_t dbl);
 /* Handle a key while the Disk Cabinet has focus (arrows/Enter/Backspace). */
 int         files_key(int key);
 
+/* Right button: the context menu (Open / Rename / Delete / Properties on
+   a file, Open / Properties on a drive).  Same return codes. */
+int         files_rclick(const Rect *client, int mx, int my);
+
 /* Scroll-thumb dragging: a press on the thumb begins it (files_click),
    the main loop feeds the pointer's y while the button stays down, and
    release ends it.  files_thumb_drag returns TRUE when the list moved. */

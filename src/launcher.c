@@ -12,6 +12,8 @@
 #include "music.h"     /* music_stop                                     */
 #include "media.h"     /* media_stop                                     */
 #include "opl.h"       /* opl_silence                                    */
+#include "sblaster.h"  /* sb_release                                     */
+#include "desktop.h"   /* desktop_release_buffers                        */
 
 int launcher_run(const char *path, const char *command, const char *theme)
 {
@@ -39,6 +41,15 @@ int launcher_run(const char *path, const char *command, const char *theme)
     video_fade_out();
     video_text_mode();
 
+    /* Then hand every big buffer back to DOS for the child's sake: the
+       frame buffers, the wallpaper, the Gramophone's clip and the Sound
+       Blaster's DMA block - about 200 KB in Mode 13h with a GIF
+       wallpaper.  All of it is rebuilt on return. */
+    media_release();
+    sb_release();
+    desktop_release_buffers();
+    video_release_buffers();
+
     /* Move to the requested working directory, if any. */
     if (path != NULL && path[0] != '\0') {
         if (path[1] == ':') {
@@ -65,6 +76,14 @@ int launcher_run(const char *path, const char *command, const char *theme)
     /* Re-enter graphics and re-apply the theme (the DAC was reset), then
        black the palette out again: main repaints the desktop and its
        present path fades it back in - the return mirrors the departure. */
+    if (!video_reclaim_buffers()) {
+        /* Only possible if the program left a TSR sitting in the memory
+           we lent it.  There is nothing to draw the desktop into. */
+        printf("\n\nCastalia cannot get its video memory back - the program\n"
+               "probably left a resident (TSR) program loaded.  Reboot,\n"
+               "or remove the TSR, then start Castalia again.\n");
+        exit(3);
+    }
     video_graphics_mode();
     video_set_theme(theme);
     video_blackout();

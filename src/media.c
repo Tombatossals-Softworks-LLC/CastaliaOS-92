@@ -765,6 +765,25 @@ void media_stop(void)
 
 bool_t media_is_playing(void) { return g_play; }
 
+/* Drop the loaded clip and its 40 KB buffer.  Called when the Gramophone
+   closes and before a DOS program is launched: allocated "once" and never
+   freed, the buffer stayed resident for the rest of the session after a
+   single tune. */
+void media_release(void)
+{
+    media_stop();
+    if (g_buf != (unsigned char far *)0)
+        _dos_freemem(FP_SEG(g_buf));
+    g_buf    = (unsigned char far *)0;
+    g_samp   = (unsigned char far *)0;
+    g_raw    = (unsigned char far *)0;
+    g_chords = (Chord far *)0;
+    g_kind   = 0;
+    g_nsamp  = 0;
+    g_nchords = 0;
+    g_name[0] = '\0';
+}
+
 /* Start a MIDI from the top (WAV plays as a blocking burst and returns). */
 static void media_start(void)
 {

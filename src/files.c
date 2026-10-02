@@ -23,6 +23,8 @@
 #include "dialog.h"
 #include "filedlg.h"
 #include "config.h"   /* CFG_PATH_LEN - the picker returns absolute paths */
+#include "recycle.h"  /* Delete sends files to the Recycle Bin          */
+#include "props.h"    /* the context menu and the Properties sheets      */
 
 /* 400, not 200.  A DOS directory holding more than two hundred entries
    is ordinary - C:\DOS, a games folder, a download drop - and the ones
@@ -1278,6 +1280,10 @@ static void op_delete(void)
     char   nm[NAME_LEN];
     bool_t isdir;
     int    ok;
+    /* A fixed disk keeps a Recycle Bin; Shift+Del, a floppy or a network
+       drive deletes for good, exactly as Windows 95 did. */
+    bool_t bin = (!recycle_shift_held() && recycle_available("."))
+                 ? TRUE : FALSE;
 
     /* Tagged files first: one question for the whole set, not one per
        file.  Everything the single-file path is careful about applies
@@ -1287,11 +1293,15 @@ static void op_delete(void)
        delete.  Failures are counted and reported once at the end rather
        than raising a box per file, which on a bad disk would be a
        dialog for every one of two hundred entries. */
+
     if (marked_count() > 0) {
         int n = marked_count(), i, failed = 0;
         char q[40];
-        sprintf(q, "Delete %d tagged item%s?", n, (n == 1) ? "" : "s");
-        if (dialog_confirm("Delete", q, "They cannot be brought back.")
+        sprintf(q, "%s %d tagged item%s?", bin ? "Recycle" : "Delete", n,
+                (n == 1) ? "" : "s");
+        if (dialog_confirm("Delete", q,
+                           bin ? "Shift+Del deletes for good."
+                               : "They cannot be brought back.")
             != DLG_YES)
             return;
         for (i = 0; i < g_count; ++i) {
@@ -1302,7 +1312,8 @@ static void op_delete(void)
             _fstrncpy(mn, g_ent[i].name, NAME_LEN - 1);
             mn[NAME_LEN - 1] = '\0';
             md = g_ent[i].is_dir ? TRUE : FALSE;
-            if (md ? (rmdir(mn) != 0) : (remove(mn) != 0))
+            if (md ? (rmdir(mn) != 0)
+                   : bin ? !recycle_file(mn) : (remove(mn) != 0))
                 ++failed;
         }
         if (failed > 0) {
@@ -1320,13 +1331,18 @@ static void op_delete(void)
     nm[NAME_LEN - 1] = '\0';
     isdir = g_ent[g_sel].is_dir ? TRUE : FALSE;
     ok = dialog_confirm("Delete",
-                        isdir ? "Delete this folder?" : "Delete this file?",
+                        isdir ? "Delete this folder?" :
+                        bin   ? "Send this to the Recycle Bin?"
+                              : "Delete this file for good?",
                         nm);
     if (ok != DLG_YES)
         return;
     if (isdir) {
         if (rmdir(nm) != 0)
             dialog_message("Delete", "Folder not empty", "or in use.");
+    } else if (bin) {
+        if (!recycle_file(nm))
+            dialog_message("Delete", "Could not recycle it.", nm);
     } else {
         if (remove(nm) != 0)
             dialog_message("Delete", "Could not delete.", NULL);
@@ -1393,6 +1409,56 @@ static int files_activate(void)
        click always shows you something true. */
     strcpy(g_launch, nm);
     return FILES_LAUNCH;
+}
+
+/* Properties of the selected entry (Alt+Enter, or the context menu). */
+static void op_props(void)
+{
+    char nm[NAME_LEN];
+    if (!selection_ok())
+        return;
+    _fstrncpy(nm, g_ent[g_sel].name, NAME_LEN - 1);
+    nm[NAME_LEN - 1] = '\0';
+    if (props_file(nm))
+        files_rescan();                /* attributes changed: re-read them */
+}
+
+int files_rclick(const Rect *client, int mx, int my)
+{
+    static const char * const DRV_MENU[3] = { "Open", "-", "Properties" };
+    static const char * const ENT_MENU[6] =
+        { "Open", "-", "Rename", "Delete", "-", "Properties" };
+    int i, pick;
+
+    if (g_view == FVIEW_COMPUTER) {
+        compute_drive_cells(client);
+        for (i = 0; i < g_drive_n; ++i) {
+            if (rect_contains(&g_drvcell[i], mx, my)) {
+                g_drive_sel = i;
+                pick = popup_menu(mx + 2, my + 2, DRV_MENU, 3);
+                if (pick == 0)      enter_drive(i);
+                else if (pick == 2) props_drive(g_drives[i]);
+                return FILES_REDRAW;
+            }
+        }
+        return FILES_NONE;
+    }
+    compute_layout(client);
+    if (!rect_contains(&g_list, mx, my))
+        return FILES_NONE;
+    i = g_scroll + (my - g_list.y - 1) / ROW_H;
+    if (i < 0 || i >= g_count)
+        return FILES_NONE;
+    g_sel = i;
+    pick = popup_menu(mx + 2, my + 2, ENT_MENU, 6);
+    switch (pick) {
+    case 0:  return files_activate();
+    case 2:  op_rename(); break;
+    case 3:  op_delete(); break;
+    case 5:  op_props();  break;
+    default: break;
+    }
+    return FILES_REDRAW;
 }
 
 int files_click(const Rect *client, int mx, int my, bool_t dbl)
@@ -1495,6 +1561,10 @@ int files_key(int key)
         case KEY_ENTER:                           /* enter -> open the drive */
             enter_drive(g_drive_sel);
             return FILES_REDRAW;
+        case KEY_ALTENTER:                     /* Alt+Enter -> Properties */
+            if (g_drive_sel >= 0 && g_drive_sel < g_drive_n)
+                props_drive(g_drives[g_drive_sel]);
+            return FILES_REDRAW;
         default:
             break;
         }
@@ -1521,6 +1591,9 @@ int files_key(int key)
         return FILES_REDRAW;
     case KEY_DEL:                       /* Del -> delete          */
         op_delete();
+        return FILES_REDRAW;
+    case KEY_ALTENTER:                  /* Alt+Enter -> Properties */
+        op_props();
         return FILES_REDRAW;
     case KEY_F7:                           /* F7  -> new folder      */
         op_new();

@@ -393,6 +393,33 @@ bool_t sys_commit_file(FILE *f, const char *tmp, const char *path)
     return copy_over(tmp, path);
 }
 
+/* ----------------------------------------------------------------------
+ * Restart the computer (Shut Down > Restart).  Everything still sitting in
+ * a write cache goes to disk first - DOS's own buffers (INT 21h AH=0Dh)
+ * and SMARTDRV's (INT 2Fh AX=4A10h BX=1; a no-op when it is not loaded) -
+ * then a warm boot: the BIOS flag that skips the memory count, a pulse
+ * on the keyboard controller's reset line, and the reset vector as the
+ * fallback for a board that ignores the controller.
+ * -------------------------------------------------------------------- */
+extern void bios_reset(void);
+#pragma aux bios_reset = 0xEA 0x00 0x00 0xFF 0xFF;  /* JMP FAR FFFF:0000 */
+
+void sys_reboot(void)
+{
+    union REGS r;
+    int i;
+    r.h.ah = 0x0D;
+    int86(0x21, &r, &r);
+    r.x.ax = 0x4A10;
+    r.x.bx = 0x0001;
+    int86(0x2F, &r, &r);
+    *(unsigned far *)MK_FP(0x40, 0x72) = 0x1234;
+    for (i = 0; i < 10000 && (inp(0x64) & 0x02); ++i)
+        ;
+    outp(0x64, 0xFE);
+    bios_reset();
+}
+
 /* ---- BIOS tick counter & CPU idle ------------------------------------ */
 
 unsigned long sys_ticks(void)

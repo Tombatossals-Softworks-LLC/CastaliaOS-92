@@ -49,6 +49,7 @@
 #include "g2048.h"
 #include "corral.h"
 #include "typist.h"
+#include "recycle.h"
 
 /* Bottom of the usable desktop (just above the taskbar). Matches
    TASKBAR_H in desktop.h (font_h() + 6) in BOTH video modes - the old
@@ -883,6 +884,10 @@ void help_set_context(int kind)
         g_help_name = "Calendar";
         g_help_ctx  = "Arrows, PgUp/PgDn month, Home today";
         break;
+    case WIN_RECYCLE:
+        g_help_name = "Recycle Bin";
+        g_help_ctx  = "Enter restores, Del deletes, E empties";
+        break;
     case WIN_FIND:
         g_help_name = "Find File";
         g_help_ctx  = "Enter opens, F4 folder, F3 name, F2 text";
@@ -1117,6 +1122,7 @@ static const AppEntry far g_app[] = {
     { WIN_FIND,     find_draw,     find_key,     0, 0,            0,                     WM_REDRAW,      WM_NONE },
     { WIN_CORRAL,   corral_draw,   corral_key,   0, 0,            0,                     WM_REDRAW,      WM_NONE },
     { WIN_TYPIST,   typist_draw,   typist_key,   0, typist_tick, AF_TICKTOP,                     WM_REDRAW,      WM_NONE  },
+    { WIN_RECYCLE,  recycle_draw,  recycle_key,  0, 0,            0,                     WM_REDRAW,      WM_NONE },
 };
 
 #define APP_N ((int)(sizeof(g_app) / sizeof(g_app[0])))
@@ -1766,6 +1772,12 @@ int wm_press(int x, int y, bool_t dbl)
         if (find_click(&cl, x, y))
             return WM_REDRAW;
     }
+    if (w->kind == WIN_RECYCLE) {
+        Rect cl;
+        client_rect(w, &cl);
+        if (recycle_click(&cl, x, y))
+            return WM_REDRAW;
+    }
     if (w->kind == WIN_AGENDA) {
         Rect cl;
         client_rect(w, &cl);
@@ -1945,6 +1957,15 @@ int wm_rpress(int x, int y)
     client_rect(&g_w[id], &cl);
     if (!rect_contains(&cl, x, y))
         return raised ? WM_RAISED : WM_NONE;   /* the frame, not contents  */
+    /* The Disk Cabinet's context menu can end in a launch ("Open" on a
+       program), which a bool_t rclick cannot say - so, like its keys and
+       clicks, it reports through the FILES_* codes. */
+    if (g_w[id].kind == WIN_FILEMAN) {
+        int r = files_rclick(&cl, x, y);
+        if (r == FILES_LAUNCH) return WM_LAUNCH;
+        if (r == FILES_REDRAW) return WM_REDRAW;
+        return raised ? WM_RAISED : WM_NONE;
+    }
     {
         const AppEntry far *a = app_find(g_w[id].kind);
         if (a != (const AppEntry far *)0 &&

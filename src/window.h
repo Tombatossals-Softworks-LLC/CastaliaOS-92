@@ -60,7 +60,8 @@
 #define WIN_FIND     39
 #define WIN_CORRAL   40
 #define WIN_TYPIST   41
-#define WIN_KIND_COUNT 42           /* size of per-kind tables            */
+#define WIN_RECYCLE  42
+#define WIN_KIND_COUNT 43           /* size of per-kind tables            */
 
 #define WM_MAX       6              /* maximum simultaneous windows       */
 #define TITLE_H      (font_h() + 4) /* title bar height (12 at 8px font)  */

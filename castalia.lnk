@@ -73,3 +73,5 @@ file src/picshow.obj
 file src/corral.obj
 file src/typist.obj
 file src/textscan.obj
+file src/recycle.obj
+file src/props.obj

@@ -1032,6 +1032,29 @@ static void icon_calendar(int x, int y)
     vid_rect    (x + S(11), y + S(18), S(5), S(5), C_BLUE);
 }
 
+/* The Recycle Bin: the Windows 95 wastebasket - a wire-mesh basket that
+   narrows toward its foot, under a white rim, with the green recycling
+   loop on its side. */
+static void icon_recycle(int x, int y)
+{
+    int r, k;
+    for (r = 0; r < 19; ++r) {                         /* tapering body  */
+        int in = r / 4;
+        vid_fillrect(x + S(7 + in), y + S(10 + r), S(18 - 2 * in), S(1),
+                     C_FACE);
+        vid_fillrect(x + S(6 + in), y + S(10 + r), S(1), S(1), C_DKGRAY);
+        vid_fillrect(x + S(25 - in), y + S(10 + r), S(1), S(1), C_DKGRAY);
+    }
+    for (k = 0; k < 4; ++k)                            /* the mesh       */
+        vid_fillrect(x + S(11 + k * 3), y + S(11), S(1), S(17), C_SHADOW);
+    vid_fillrect(x + S(10), y + S(28), S(12), S(1), C_DKGRAY);   /* foot */
+    vid_fillrect(x + S(5),  y + S(7),  S(22), S(3), C_WHITE);    /* rim  */
+    vid_rect    (x + S(5),  y + S(7),  S(22), S(3), C_DKGRAY);
+    vid_rect    (x + S(12), y + S(14), S(8),  S(7), C_GREEN);    /* loop */
+    vid_rect    (x + S(13), y + S(15), S(6),  S(5), C_GREEN);
+    vid_fillrect(x + S(18), y + S(13), S(3),  S(2), C_GREEN);    /* arrow */
+}
+
 static void icon_agenda(int x, int y)
 {
     vid_fillrect(x + S(6),  y + S(4),  S(20), S(24), C_CREAM);   /* board  */
@@ -1253,6 +1276,7 @@ void ui_icon(int kind, int x, int y)
     case ICON_FRACTAL:  icon_fractal(x, y);  break;
     case ICON_CARDFILE: icon_cardfile(x, y); break;
     case ICON_CALENDAR: icon_calendar(x, y); break;
+    case ICON_RECYCLE:  icon_recycle(x, y);  break;
     case ICON_BENCH:    icon_bench(x, y);    break;
     case ICON_ORACLE:   icon_oracle(x, y);   break;
     case ICON_SETTINGS: icon_settings(x, y); break;
@@ -1398,6 +1422,7 @@ static int icon_for_folded(void)
 {
     if (has("fileman") || has("computer") ||
         has("mycomp"))                              return ICON_COMPUTER;
+    if (has("recycle") || has("trash"))    return ICON_RECYCLE;
     if (has("cabinet") || has("folder"))   return ICON_FOLDER;
     if (has("find")    || has("search"))   return ICON_FIND;
     if (has("oracle")  || has("probe") ||
@@ -1439,7 +1464,8 @@ static int icon_for_folded(void)
     if (has("color")   || has("palette"))  return ICON_COLORS;
     if (has("fractal") || has("mandel"))   return ICON_FRACTAL;
     if (has("calc"))                                return ICON_CALC;
-    if (has("clock"))                               return ICON_CLOCK;
+    if (has("clock")   || has("datetime") ||
+        has("timedate"))                            return ICON_CLOCK;
     if (has("paint")   || has("sketch"))   return ICON_PAINT;
     if (has("char"))                                return ICON_CHARS;
     if (has("music")   || has("juke") ||

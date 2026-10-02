@@ -199,6 +199,20 @@ void desktop_swap_bitmaps(int a, int b)
 
 /* Swap the tiled wallpaper at run time (Settings).  The art loads into
    the same spare slot; the cache rebuild does the rest. */
+/* Give the GIF wallpaper's 64 KB back to DOS for a launched program, and
+   forget the scene cache, which the video layer frees at the same time.
+   restore_wallpaper() in main.c decodes the picture again on return. */
+void desktop_release_buffers(void)
+{
+    if (g_gifseg != 0) {
+        _dos_freemem(g_gifseg);
+        g_gifseg = 0;
+    }
+    g_gif    = (u8 far *)0;
+    g_gif_ok = FALSE;
+    g_bg_valid = FALSE;
+}
+
 void desktop_set_wallpaper(const char *path)
 {
     apply_wallpaper(path);

@@ -72,14 +72,15 @@ or the whole file - may be deleted.
   calc clock paint charmap colors fractal stopwatch eyes agenda
   peek cardfile calendar gram play cinema puzzle ttt mines
   reversi snake breaker echo quadrix depot patience lights pong
-  corral typist music 2048.
+  corral typist music 2048 recycle datetime.
   Anything else is run as a DOS program (.EXE/.COM/.BAT).
   "gram" opens the Gramophone empty; "play" asks for a sound file
   first, the way "peek" asks for a file to inspect.
   One name per applet is listed, but most answer to a second:
   games=arcade, solitaire=patience, sketch=paint, serpent=snake,
   minefield=mines, tetra=quadrix, sokoban=depot, memory=echo,
-  gallery=pictures, timer=stopwatch, control=settings, and so on.
+  gallery=pictures, timer=stopwatch, control=settings,
+  trash=recycle, timedate=datetime, and so on.
   Either spelling works; the aliases are left out for brevity, not
   because they are unsupported.
   ("music" works again as of 0.56.  The Music Box was retired in 0.44
