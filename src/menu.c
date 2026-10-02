@@ -41,30 +41,30 @@ static MEntry g_docs[DOCS_MAX];
 static int    g_docsn;
 
 static const MEntry DOCS_BUILTIN[] = {
-    { "Scrap Box",     "scrap",    0, 0, 0 },
-    { "Cardfile",      "cardfile", 0, 0, 0 },
-    { "Agenda",        "agenda",   0, 0, 0 },
-    { "Calendar",      "calendar", 0, 0, 0 },
-    { "Hex Peek",      "peek",     0, 0, 0 }
+    { "Scrap Box",     "scrap",    0, 0, 0, -1 },
+    { "Cardfile",      "cardfile", 0, 0, 0, -1 },
+    { "Agenda",        "agenda",   0, 0, 0, -1 },
+    { "Calendar",      "calendar", 0, 0, 0, -1 },
+    { "Hex Peek",      "peek",     0, 0, 0, -1 }
 };
 #define DOCS_BUILTIN_N ((int)(sizeof(DOCS_BUILTIN)/sizeof(DOCS_BUILTIN[0])))
 
 static const MEntry SUB_SET[] = {
-    { "Settings",      "settings", 0, 0, 0 },
-    { "Colors",        "colors",   0, 0, 0 },
-    { "Character Map", "charmap",  0, 0, 0 }
+    { "Settings",      "settings", 0, 0, 0, -1 },
+    { "Colors",        "colors",   0, 0, 0, -1 },
+    { "Character Map", "charmap",  0, 0, 0, -1 }
 };
 static const MEntry SUB_MEDIA[] = {
-    { "Gramophone",    "gram",     0, 0, 0 },
-    { "Cinema",        "cinema",   0, 0, 0 }
+    { "Gramophone",    "gram",     0, 0, 0, -1 },
+    { "Cinema",        "cinema",   0, 0, 0, -1 }
 };
 /* The always-present shell entries.  The user's own pinned [shortcut] items
    sit above these under Programs; kept short so the default list is a single
    tidy column (the Program Drawer window lists every shortcut when there are
    more than a screen can hold). */
 static const MEntry PROG_BUILTIN[] = {
-    { "Program Drawer","drawer",      0, 0, 0 },
-    { "Command Room",  "COMMAND.COM", 0, 0, 0 }
+    { "Program Drawer","drawer",      0, 0, 0, -1 },
+    { "Command Room",  "COMMAND.COM", 0, 0, 0, -1 }
 };
 
 /* Programs submenu, assembled at open time: the INI shortcuts, a rule, then
@@ -196,7 +196,7 @@ void menu_open(const CfgShortcut *items, int count,
 
     /* Build the top level. */
     {
-        static const MEntry SEP = { "-", 0, 0, 0, 0 };
+        static const MEntry SEP = { "-", 0, 0, 0, 0, -1 };
         MEntry programs; programs.label = "Programs"; programs.cmd = 0;
         programs.sub = g_prog; programs.subn = g_progn; programs.sc = 0;
         programs.rec = -1;

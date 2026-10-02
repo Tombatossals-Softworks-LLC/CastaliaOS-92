@@ -24,7 +24,8 @@ static const char * const TABS[NTABS] =
 
 static int    g_tab   = T_ABOUT;
 static unsigned g_phase = 0;
-static int    g_scroll = 0;
+static unsigned g_scroll = 0;         /* unsigned: wraps without going < 0 */
+static unsigned long g_last_tick = 0;
 static int    g_logo_hits = 0;
 static bool_t g_secret = FALSE;
 
@@ -143,6 +144,15 @@ void about_open(void)
 /* ---- animation ------------------------------------------------------- */
 bool_t about_tick(void)
 {
+    /* One step per BIOS tick.  This advanced on every main-loop pass, so
+       the credits rolled at whatever the frame rate was - a crawl on a
+       386SX, a blur on a fast emulator - and, returning TRUE every pass,
+       kept the loop from ever reaching sys_idle(): 100% CPU for as long
+       as the window sat open on those tabs, even behind other windows. */
+    unsigned long now = sys_ticks();
+    if (now == g_last_tick)
+        return FALSE;
+    g_last_tick = now;
     ++g_phase;
     if (g_party) {
         ++g_party_t;
@@ -190,8 +200,13 @@ static void draw_confetti(const Rect *cl)
                                C_CYAN, C_WHITE };
     for (i = 0; i < 40; ++i) {         /* long: 255*(w-8) tops 16 bits     */
         int cx = cl->x + 4 + (int)((long)hashx(i) * (cl->w - 8) / 256);
-        int cy = cl->y + ((hashy(i) + (int)g_party_t * 3 + i * 2)
-                          % (cl->h - 4));
+        /* Unsigned long: (int)g_party_t * 3 wrapped negative after
+           10923 frames, the remainder went negative, and the confetti
+           rained over the title bar and the windows above. */
+        int cy = cl->y + (int)(((unsigned long)hashy(i) +
+                                (unsigned long)g_party_t * 3UL +
+                                (unsigned long)(i * 2)) %
+                               (unsigned long)(cl->h - 4));
         vid_fillrect(cx, cl->y + cy - cl->y, 2, 2, COL[i % 6]);
     }
 }
@@ -258,7 +273,8 @@ static void page_scroll_list(const Rect *cl, int y0, const char * const *ln,
     vid_fillrect(box.x, box.y, box.w, box.h, C_CREAM);
     ui_sink(box.x, box.y, box.w, box.h);
     for (i = 0; i < n; ++i) {
-        int ty = box.y + 3 + i * lh - (rolling ? (g_scroll % (n * lh + boxh)) : 0);
+        int ty = box.y + 3 + i * lh -
+                 (rolling ? (int)(g_scroll % (unsigned)(n * lh + boxh)) : 0);
         /* font_draw clips only to the screen, so a line that is only PARTLY
            inside the pad would spill over the sink bevel - into the tabs
            above or the frame below.  Draw a line only while it fits wholly

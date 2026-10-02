@@ -52,6 +52,20 @@ static int d_won;
 static u8 far d_undo[DUNDO];
 static int d_nundo;
 
+/* Push one move on the undo history.  When it is full the OLDEST move is
+   dropped.  It used to stop recording at 250 instead, so the next undo
+   popped move 250 and replayed it backwards from wherever the worker
+   stood now - walking him through walls and conjuring or deleting crates
+   on unrelated cells, out of the map altogether on the tall floors. */
+static void d_record(u8 m)
+{
+    if (d_nundo == DUNDO) {
+        _fmemmove(d_undo, d_undo + 1, DUNDO - 1);
+        --d_nundo;
+    }
+    d_undo[d_nundo++] = m;
+}
+
 static const int DDX[4] = { 1, -1, 0, 0 };
 static const int DDY[4] = { 0, 0, 1, -1 };
 
@@ -113,12 +127,10 @@ static bool_t d_move(int dir)
         *n = (u8)(*n & ~F_BOX);
         *b |= F_BOX;
         ++d_pushes;
-        if (d_nundo < DUNDO)
-            d_undo[d_nundo++] = (u8)(dir | 4);
+        d_record((u8)(dir | 4));
         music_sfx(240, 1);
     } else {
-        if (d_nundo < DUNDO)
-            d_undo[d_nundo++] = (u8)dir;
+        d_record((u8)dir);
     }
     d_px = nx; d_py = ny;
     ++d_moves;

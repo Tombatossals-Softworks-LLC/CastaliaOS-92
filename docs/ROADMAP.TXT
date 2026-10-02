@@ -782,9 +782,33 @@ v1.0  Stable release  -- OPEN
       stack and the near heap stdio lives in) passes a 56 KB watermark -
       ci/memory.sh
   [ ] Hardened on several real 386/486 machines and common mouse drivers
-      STILL OPEN, and the only thing between this and 1.0.  What HAS been
-      done is the half that does not need the hardware: running at its
-      SPEED.  tools/shot.sh takes CYCLES=<n>, and cycles=1100 under
+      STILL OPEN, and the only thing between this and 1.0 - but no longer
+      untouched.  FIRST REAL MACHINE: a 386SX/16 with 4 MB, an INT 33h
+      mouse driver and MS-DOS 7.10 boots the desktop and runs the System
+      Inspector and the Benchmark (photographed on the CRT).  What that
+      one machine showed:
+
+        * THE BENCHMARK WAS CALIBRATED ON DOSBOX, NOT IRON.  The datum
+          machine itself scored 59, "286 / early-386 class": the integer
+          and memory kernels ran at 0.21-0.36x of their "386SX/16" anchors
+          and the video ones at 1.06-1.48x.  DOSBox at cycles=1100 charges
+          every instruction alike; a real SX pays far more for a 32-bit
+          IMUL and for dwords over its 16-bit bus.  The six raw counts it
+          returned ARE the new anchors (bench.c; the Oracle's four shared
+          kernels too - its two memory kernels still want a photo).
+        * "Total RAM 3658 KB" on a 4 MB board: base + FREE XMS.  Now base
+          + the extended memory CMOS counted at POST.
+        * "FPU 80x87 ok" came from the BIOS equipment word, not a probe.
+          Now FNINIT/FNSTSW.
+        * 14 KB of conventional memory left with the desktop up - the
+          docs' "~120 KB resident" was off by a factor of four.  Programs
+          run from inside the shell get almost nothing; CASTSHEL plus
+          freemem=true is the real path for anything but small tools.
+
+      Recorded as LAP 1 (partial) in docs/HARDWARE.TXT.
+
+      Before that, the half that does not need the hardware: running at
+      its SPEED.  tools/shot.sh takes CYCLES=<n>, and cycles=1100 under
       DOSBox is about a 386SX/16 - the low end of what the README claims.
       Two runs at that setting found a real defect:
 

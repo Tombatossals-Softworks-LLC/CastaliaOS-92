@@ -229,19 +229,25 @@ static bool_t load_wav(const char *path)
             /* A fmt chunk shorter than 16 bytes leaves fb[14..15] unwritten,
                and g_bits then came off uninitialised stack - which decided
                bytesps and steered the whole decode.  Zero it first. */
-            unsigned n = (clen < 16) ? (unsigned)clen : 16;
+            unsigned n = (clen < 16) ? (unsigned)clen : 16, tag;
             memset(fb, 0, sizeof(fb));
             if (fread(fb, 1, n, f) != n) break;
+            /* Integer PCM only (1, or WAVE_FORMAT_EXTENSIBLE carrying it):
+               ADPCM, mu-law and float data used to decode as loud noise. */
+            tag = rd16(fb + 0);
+            if (tag != 1 && tag != 0xFFFE) break;
             g_ch   = rd16(fb + 2);
             /* The WAV sample rate is a 32-bit field and g_rate is 16-bit:
                96 kHz used to truncate to 30464 and 192 kHz to 60928, taking
                the step, the play rate, the duration and the readout with
                them.  Range-check before narrowing. */
             srate  = rd32(fb + 4);
-            g_rate = (srate >= 1UL && srate <= 65535UL) ? (unsigned)srate : 0;
+            if (srate < 1UL || srate > 65535UL)
+                break;             /* was "8000": a 96 kHz file played 12x slow */
+            g_rate = (unsigned)srate;
             g_bits = rd16(fb + 14);
             if (g_ch < 1)   g_ch = 1;
-            if (g_rate < 1) g_rate = 8000;
+            if (g_bits < 1 || g_bits > 32) break;
             have_fmt = TRUE;
             if (clen > n) fseek(f, (long)(clen - n), SEEK_CUR);
             if (clen & 1) fseek(f, 1L, SEEK_CUR);    /* RIFF word padding   */
@@ -251,11 +257,12 @@ static bool_t load_wav(const char *path)
                that yielded 4, so the duration came out 1.5x long and both
                the intra-frame skip and the inter-frame seek under-shot,
                walking progressively further out of step into noise. */
-            unsigned bytesps = ((g_bits + 7) / 8) * g_ch;
-            unsigned need    = (g_bits >= 16) ? 2 : 1;  /* first channel only */
+            unsigned bps1    = (g_bits + 7) / 8;      /* one channel's bytes */
+            unsigned bytesps = bps1 * g_ch;
+            unsigned need    = bps1;                  /* first channel only */
             unsigned long total = clen / (bytesps ? bytesps : 1);
             unsigned step;
-            unsigned long i;
+            unsigned long step256;                    /* frames/sample x256 */
             unsigned char fr[8];
             g_bytes = clen;
             g_secs  = (unsigned)(total / (g_rate ? g_rate : 1));
@@ -263,50 +270,81 @@ static bool_t load_wav(const char *path)
                (best quality), downsampling only enough to fit the buffer;
                a Sound Source is capped at its ~7 kHz FIFO drain; the PC
                speaker keeps its fixed ~4 kHz PWM rate. */
-            if (sb_present() || lptdac_present()) {
-                unsigned cap = sb_present() ? 0 : lptdac_max_rate();
+            /* Pick the rate the buffer will be PLAYED at, then resample to
+               it.  Every device must really play at g_play_rate, or the
+               clip comes out at the wrong speed and pitch:
+                 Sound Blaster - near native, downsampled only to fit the
+                   buffer, but kept within what the DSP's normal mode can
+                   do (4 kHz floor of the time constant, ~22 kHz ceiling):
+                   a 5 s 8 kHz clip used to load at 2666 Hz and play 1.5x
+                   fast, then sit in silence.  A long clip is cut short
+                   instead of being sped up.
+                 Covox - near native, downsampled to fit.
+                 Sound Source - its FIFO drains at a FIXED ~7 kHz, so the
+                   data must be 7 kHz exactly; capping alone left an
+                   11025 Hz file at 5512 Hz, 27% fast.
+                 PC speaker - its fixed PWM rate; an integer step of
+                   g_rate/4000 left 11025 Hz at 5512 Hz there too.
+               Fractional stepping (x256) covers all four, upsampling a
+               rate below the target by repeating samples. */
+            if (sb_present() || (lptdac_present() && lptdac_max_rate() == 0)) {
                 step = (unsigned)((total + WAV_MAX - 1) / WAV_MAX);
                 if (step < 1) step = 1;
-                if (cap != 0 && g_rate / step > cap) {
-                    /* 32-bit: g_rate may be the full 16-bit range, so
-                       g_rate + cap - 1 wrapped and gave s2 = 0 - the
-                       guard then never fired and a Sound Source was
-                       driven at ~10x its FIFO drain rate. */
-                    unsigned s2 = (unsigned)
-                        (((unsigned long)g_rate + cap - 1) / cap);
-                    if (s2 > step) step = s2;
+                if (sb_present()) {
+                    unsigned smax = g_rate / 4000U;
+                    if (smax < 1) smax = 1;
+                    while (g_rate / step > 22050U)
+                        ++step;
+                    if (step > smax) step = smax;
                 }
                 g_play_rate = g_rate / step;
                 if (g_play_rate < 1) g_play_rate = g_rate;
+                step256 = (unsigned long)step * 256UL;
             } else {
-                step = g_rate / PLAY_RATE;
-                if (step < 1) step = 1;
-                g_play_rate = PLAY_RATE;
+                g_play_rate = lptdac_present() ? lptdac_max_rate() : PLAY_RATE;
+                step256 = (unsigned long)g_rate * 256UL / g_play_rate;
+                if (step256 < 1) step256 = 1;
             }
-            for (i = 0; i < total && g_nsamp < WAV_MAX; i += step) {
-                int v;
-                /* (long)(step-1) FIRST: both operands are 16-bit, so the
-                   product used to wrap before the widening cast and a wide
-                   frame (6-channel 16-bit is 12 bytes) seeked to the wrong
-                   place, decoding the tail of the file as noise. */
-                if (i > 0)
-                    fseek(f, (long)(step - 1) * (long)bytesps, SEEK_CUR);
-                /* Read only the first channel's sample (1 or 2 bytes) - a
-                   frame can be far wider than fr[] (e.g. 6-channel 16-bit is
-                   12 bytes), so the rest of the frame is skipped, not read. */
-                if (fread(fr, 1, need, f) != need)
-                    break;
-                if (bytesps > need)
-                    fseek(f, (long)(bytesps - need), SEEK_CUR);
-                if (g_bits >= 16) {
-                    int s = (int)(short)rd16(fr);   /* left channel */
-                    v = (s >> 8) + 128;
-                } else {
-                    v = fr[0];                       /* already 0..255 */
+            {
+                unsigned long pos = 0;  /* source frame x256 of next sample */
+                unsigned long cur = 0;  /* frame the file pointer is at     */
+                int v = 128;
+                bool_t got = FALSE;
+                while (g_nsamp < WAV_MAX) {
+                    unsigned long fi = pos / 256UL;
+                    if (fi >= total)
+                        break;
+                    if (!got || fi >= cur) {
+                        /* (long) FIRST: both operands are 16-bit, so the
+                           product used to wrap before the widening cast
+                           and a wide frame seeked to the wrong place. */
+                        if (fi > cur)
+                            fseek(f, (long)(fi - cur) * (long)bytesps,
+                                  SEEK_CUR);
+                        /* Read only the first channel's sample - a frame
+                           can be far wider than fr[] (6-channel 16-bit is
+                           12 bytes), so the rest is skipped, not read. */
+                        if (fread(fr, 1, need, f) != need)
+                            break;
+                        if (bytesps > need)
+                            fseek(f, (long)(bytesps - need), SEEK_CUR);
+                        cur = fi + 1;
+                        got = TRUE;
+                        if (g_bits > 8) {
+                            /* The TOP two bytes: 24/32-bit samples are
+                               little-endian, so the first two read were
+                               the least significant ones - noise. */
+                            int s = (int)(short)rd16(fr + bps1 - 2);
+                            v = (s >> 8) + 128;
+                        } else {
+                            v = fr[0];               /* already 0..255 */
+                        }
+                        if (v < 0)   v = 0;
+                        if (v > 255) v = 255;
+                    }
+                    g_samp[g_nsamp++] = (unsigned char)v;  /* repeats when */
+                    pos += step256;                        /* upsampling   */
                 }
-                if (v < 0)   v = 0;
-                if (v > 255) v = 255;
-                g_samp[g_nsamp++] = (unsigned char)v;
             }
             break;
         } else {
@@ -576,22 +614,6 @@ bool_t media_open_file(const char *path)
 }
 
 /* ---- playback -------------------------------------------------------- */
-static unsigned pit_count(void)
-{
-    unsigned lo, hi;
-    outp(0x43, 0x00);                  /* latch channel 0                  */
-    lo = inp(0x40);
-    hi = inp(0x40);
-    return (hi << 8) | lo;
-}
-static void pit_wait(unsigned period)
-{
-    unsigned start = pit_count(), now, el;
-    do {
-        now = pit_count();
-        el  = (unsigned)((start - now) & 0xFFFF);     /* ch0 counts down    */
-    } while (el < period);
-}
 
 /* WAV: a bounded, key-interruptible PWM burst.  Channel 2 in mode 0 makes
    each sample a pulse whose width the speaker cone integrates; the sample
@@ -599,7 +621,7 @@ static void pit_wait(unsigned period)
 static void wav_play(void)
 {
     unsigned char p61;
-    unsigned period;
+    unsigned long period, due = 0;
     int i;
 
     /* Device ladder: a Sound Blaster plays the samples as real digital
@@ -615,13 +637,23 @@ static void wav_play(void)
         return;
 
     p61    = inp(0x61);
-    period = (unsigned)(1193180UL / (g_play_rate ? g_play_rate : PLAY_RATE));
+    period = 1193180UL / (g_play_rate ? g_play_rate : PLAY_RATE);
     outp(0x43, 0x90);                  /* ch2, LSB only, mode 0, binary     */
     outp(0x61, (unsigned char)(p61 | 0x03));
+    sys_pit_start();
     for (i = 0; i < g_nsamp; ++i) {
-        outp(0x42, g_samp[i]);
-        pit_wait(period);
-        if (kbhit()) { getch(); break; }
+        /* The pulse must fit inside the sample period (scaled down above
+           ~4.7 kHz, where the period is under 256 clocks), and a count of
+           0 is 256 in mode 0 - the LONGEST pulse, a click on every
+           silent sample - so it is floored at 1. */
+        unsigned pw = (period >= 256UL) ? (unsigned)g_samp[i]
+                    : (unsigned)(((unsigned long)g_samp[i] * period) >> 8);
+        if (pw == 0)
+            pw = 1;
+        outp(0x42, (unsigned char)pw);
+        due += period;
+        sys_pit_until(due);
+        if ((i & 63) == 0 && kbhit()) { getch(); break; }
     }
     outp(0x61, (unsigned char)(p61 & 0xFC));   /* restore speaker off       */
 }

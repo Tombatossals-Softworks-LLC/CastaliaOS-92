@@ -11,8 +11,8 @@ PRIMARY (and the one this project is written and verified for):
     https://github.com/open-watcom/open-watcom-v2
 
     The classic Open Watcom 1.9 release also builds the tree clean
-    (zero warnings at -wx -we) and is what the committed 0.13 release
-    binary was cross-compiled with, so either generation works.
+    (zero warnings at -wx -we), so either generation works.  CI builds
+    with Open Watcom 2.0 (open-watcom/setup-watcom).
 
 Why Open Watcom:
     * Free, open source, actively maintained, runs on modern PCs and can
@@ -67,7 +67,8 @@ From the project root (the directory that contains this file):
         wmake clean
 
 Either way the result is  CASTALIA.EXE  in the project root.  It is a
-plain MS-DOS MZ executable of about 34 KB.
+plain MS-DOS MZ executable of roughly 400 KB (CI rejects a link outside
+100-500 KB, and ci/memory.sh caps it at 450 KB).
 
 Cross-building from Windows or Linux works identically: the same wmake
 and the same wcc/wlink produce the same DOS .EXE.  (On a case-sensitive
@@ -116,7 +117,10 @@ DOSBox tips:
            CTMOUSE          (CuteMouse, small and free), or
            MOUSE            (any Microsoft-compatible driver)
     4. Free conventional memory: Castalia needs roughly 64 KB free for
-       its off-screen buffer plus room for itself (~120 KB resident).
+       its off-screen buffer plus room for itself - and itself is most
+       of conventional memory: the EXE alone is ~400 KB.  On a real
+       4 MB 386SX/16 under MS-DOS 7.10 the System Inspector showed 14 KB
+       of conventional memory left with the desktop up.
        To leave the most room for launched programs, load DOS high:
            DOS=HIGH,UMB     in CONFIG.SYS (with HIMEM.SYS), and load the
            mouse driver into upper memory (DEVICEHIGH / LH) if you can.
@@ -124,10 +128,10 @@ DOSBox tips:
 
     Note on launching programs: because there is no multitasking,
     Castalia stays resident while a launched DOS program runs, so the
-    program gets (640 KB - whatever Castalia + DOS use).  That is plenty
-    for editors, file tools and a nested COMMAND.COM.  A program that
-    needs almost all of conventional memory should be run from DOS
-    directly rather than from inside Castalia.
+    program gets (640 KB - whatever Castalia + DOS use), which is very
+    little (see step 4) - enough for small tools only.  For anything
+    bigger, start Castalia as CASTSHEL and mark the program's [shortcut]
+    freemem=true: Castalia then unloads completely while it runs.
 
 5. CONTINUOUS INTEGRATION
 -------------------------

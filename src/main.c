@@ -503,10 +503,12 @@ static void execute_command(const char *command, const char *path)
         card_open();
         open_centered(WIN_CARD, "Cardfile", 224, 172);
     } else if (streqi(command, "quadrix") || streqi(command, "tetra")) {
-        quadrix_open();
+        if (!wm_has_kind(WIN_QUADRIX))   /* a game under way: just raise it */
+            quadrix_open();
         open_centered(WIN_QUADRIX, "Quadrix", 178, 172);
     } else if (streqi(command, "depot") || streqi(command, "sokoban")) {
-        depot_open();
+        if (!wm_has_kind(WIN_DEPOT))   /* a game under way: just raise it */
+            depot_open();
         open_centered(WIN_DEPOT, "Depot", 208, 172);
     } else if (streqi(command, "stopwatch") || streqi(command, "timer")) {
         timer_open();
@@ -521,7 +523,8 @@ static void execute_command(const char *command, const char *path)
            window that can least afford to be cut off. */
         open_centered(WIN_HELP, "Help", 288, 178);
     } else if (streqi(command, "patience") || streqi(command, "solitaire")) {
-        patience_open();
+        if (!wm_has_kind(WIN_PATIENCE))   /* a game under way: just raise it */
+            patience_open();
         open_centered(WIN_PATIENCE, "Patience", 302, 184);
     } else if (streqi(command, "lights") || streqi(command, "lightsout")) {
         lights_open();
@@ -622,10 +625,12 @@ static void execute_command(const char *command, const char *path)
         restore_wallpaper();
         damage_all();
     } else if (streqi(command, "corral") || streqi(command, "jezz")) {
-        corral_open();
+        if (!wm_has_kind(WIN_CORRAL))   /* a game under way: just raise it */
+            corral_open();
         open_centered(WIN_CORRAL, "Corral", 224, 172);
     } else if (streqi(command, "typist") || streqi(command, "typing")) {
-        typist_open();
+        if (!wm_has_kind(WIN_TYPIST))   /* a game under way: just raise it */
+            typist_open();
         open_centered(WIN_TYPIST, "Typing Tutor", 264, 130);
     } else if (streqi(command, "calc")) {
         if (!wm_has_kind(WIN_CALC))
@@ -670,6 +675,7 @@ static void execute_command(const char *command, const char *path)
     } else {
         /* External DOS program. */
         launcher_run(use_path, command, g_cfg.theme);
+        restore_wallpaper();           /* the mode set reset DAC 16..191 */
         kb_flush();
         /* The INT 33h driver kept counting presses while the child ran;
            drain them or they replay as desktop clicks on return. */
@@ -810,6 +816,7 @@ static void open_document(const char *cwd, const char *cmd)
 
     if (strcmp(app, "dos") == 0) {          /* executables spawn         */
         launcher_run(cwd, cmd, g_cfg.theme);
+        restore_wallpaper();                /* DAC 16..191 was reset     */
         kb_flush();
         mouse_update();                     /* drain presses accrued     */
         (void)mouse_take_lpresses();        /* while the child ran       */
@@ -1042,7 +1049,8 @@ static void on_left_down(int mx, int my, bool_t dbl)
             else                          do_group_launch();
             return;
         }
-        if (oracle_poll_damage() || wm_poll_retitled()) {
+        if (oracle_poll_damage() || bench_poll_damage() ||
+            wm_poll_retitled()) {
             /* The Oracle's benchmark paints its video sub-tests in absolute
                screen coordinates, so the whole scene has to be rebuilt -
                a window-only repaint would leave the colour bands standing
@@ -1304,6 +1312,7 @@ static void on_key(int key)
             g_dirty = TRUE;
             if (dialog_took_over() ||      /* Load/Save box painted over all */
                 oracle_poll_damage() ||    /* benchmark scribbled everywhere */
+                bench_poll_damage()  ||    /* ...and so did the Benchmark's  */
                 wm_poll_retitled()) {      /* the title BAR, not the client */
                 damage_all();
             } else {
@@ -1956,12 +1965,24 @@ static void event_loop(void)
 
 /* ---- entry point ----------------------------------------------------- */
 
-int main(void)
+int main(int argc, char *argv[])
 {
     /* 0. Remember where we live: data files (INI, agenda, high scores,
        the gallery) stay anchored here no matter where the Disk Cabinet
-       later wanders. */
-    sys_capture_home();
+       later wanders.  argv[0] is the EXE's own full path on DOS 3+. */
+    (void)argc;
+    sys_capture_home(argv[0]);
+
+    /* A CASTRUN.BAT that survived to this point is stale - a crash or a
+       reboot in the middle of a free-memory launch - and CASTSHEL would
+       replay that program on our next normal exit.  A launch writes a
+       fresh one just before quitting, so at start-up there is never a
+       live one to lose. */
+    {
+        char runp[132];
+        sys_home_path(runp, (int)sizeof(runp), "CASTRUN.BAT");
+        remove(runp);
+    }
 
     /* 1. Configuration (falls back to built-in defaults).  Read it from our
        OWN directory, not the current one: INSTALL.BAT puts Castalia on the
@@ -1977,8 +1998,10 @@ int main(void)
     recent_load();                     /* Start > Documents, from last run */
     lptdac_config(g_cfg.lptdac, g_cfg.lptport);   /* declared LPT DAC, if any */
 
-    /* Fail not-ready drives gracefully instead of hanging the GUI. */
+    /* Fail not-ready drives gracefully instead of hanging the GUI, and
+       keep Ctrl+C / Ctrl+Break from killing the shell in graphics mode. */
     crit_error_install();
+    ctrl_break_install();
 
     /* Minimum-system gate: 1 MB of RAM - the Amiga-500-class baseline this
        project targets.  Checked in text mode so the message is readable. */
@@ -2049,6 +2072,8 @@ int main(void)
        until a key is pressed, then fade to black, restore text mode and free
        memory. */
     music_stop();
+    media_stop();                      /* a MIDI's sustained FM voices too */
+    opl_silence();
     if (g_have_mouse)
         mouse_hide();
     splash_shutdown();

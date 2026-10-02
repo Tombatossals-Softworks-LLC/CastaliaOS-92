@@ -144,7 +144,9 @@ bool_t typist_key(int key)
             g_shown = ticks();
             ++g_lines_done;
             g_wpm = wpm_now();
-            g_acc = (int)((long)g_len * 100 / (g_len + g_err));
+            /* The sum in long: g_len + g_err in 16-bit int went negative
+               past ~32,700 misses (a held key), or hit 0 - a divide error. */
+            g_acc = (int)((long)g_len * 100L / ((long)g_len + (long)g_err));
             if (g_acc >= 85 &&
                 hiscore_submit("typist", (long)g_wpm))
                 g_newbest = 1;

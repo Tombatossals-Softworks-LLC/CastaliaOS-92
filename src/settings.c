@@ -430,7 +430,7 @@ static bool_t settings_activate(int i)
    whatever directory the Disk Cabinet last browsed to. */
 static void settings_save(void)
 {
-    char inip[80];
+    char inip[132];                    /* main.c loads through 132 bytes   */
     sys_home_path(inip, (int)sizeof(inip), "CASTALIA.INI");
     if (config_save(inip, g_cfg)) {
         strcpy(g_msg, "Saved to INI");

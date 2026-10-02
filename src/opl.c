@@ -73,24 +73,28 @@ static int gm_patch(int gm)
     return gm / 8;                          /* otherwise, one per family    */
 }
 
-static void io_delay(void)
+/* Status-port reads as the settle delay: each is one ISA bus cycle, so
+   the wait scales with the bus, not the CPU.  The counts are the AdLib
+   programming guide's - 6 after the address, 35 after the data.  12 after
+   the data covered an OPL3 and DOSBox but not the ~23 us a genuine YM3812
+   (AdLib, Sound Blaster 1.x/2.0/Pro 1) needs, where writes got dropped. */
+static void io_delay(int reads)
 {
     int i;
-    for (i = 0; i < 6; ++i) (void)inp(OPL_ADDR);
+    for (i = 0; i < reads; ++i) (void)inp(OPL_ADDR);
 }
 
 static void opl_write(int reg, int val)
 {
     outp(OPL_ADDR, (unsigned char)reg);
-    io_delay();                        /* address settle (~3.3 us on OPL2)   */
+    io_delay(6);                       /* address settle (~3.3 us on OPL2)   */
     outp(OPL_DATA, (unsigned char)val);
-    io_delay();
-    io_delay();                        /* data settle (~23 us on OPL2)       */
+    io_delay(35);                      /* data settle (~23 us on OPL2)       */
 }
 
 bool_t opl_present(void)
 {
-    int s1, s2, i;
+    int s1, s2;
     if (g_state >= 0)
         return g_state ? TRUE : FALSE;
 
@@ -99,7 +103,7 @@ bool_t opl_present(void)
     s1 = inp(OPL_ADDR) & 0xE0;
     opl_write(0x02, 0xFF);             /* timer 1 to -1 (expires at once)    */
     opl_write(0x04, 0x21);             /* start timer 1                      */
-    for (i = 0; i < 200; ++i) io_delay();          /* wait ~100 us          */
+    io_delay(1200);                                /* wait ~100 us+        */
     s2 = inp(OPL_ADDR) & 0xE0;
     opl_write(0x04, 0x60);
     opl_write(0x04, 0x80);

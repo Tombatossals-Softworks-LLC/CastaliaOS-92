@@ -86,14 +86,18 @@ done
 # and without this the check did not report "I cannot look", it reported
 # "the binary is the wrong version", which is a different bug entirely.
 # grep -a over the image answers the same question with no toolchain.
+# -n 3: strings defaults to runs of four or more, and "1.0" - the
+# roadmap's goal - is three, so the check would have failed forever at the
+# release it exists for.  -F: the version is a literal, not a regex ("1.0"
+# also matched "130").
 version_in_binary() {
   if command -v strings >/dev/null 2>&1; then
-    strings -a "$1" | grep -qx "$2"
+    strings -a -n 3 "$1" | grep -qFx "$2"
   else
     # tr splits the image on non-printables, which is what `strings` does;
     # -qx then demands the whole run be the version, so 0.5 cannot match
     # inside 0.56 and a stale binary cannot pass by coincidence.
-    LC_ALL=C tr -c '[:print:]' '\n' < "$1" | grep -qx "$2"
+    LC_ALL=C tr -c '[:print:]' '\n' < "$1" | grep -qFx "$2"
   fi
 }
 

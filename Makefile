@@ -30,7 +30,7 @@ CFLAGS  = -bt=dos -mm -3 -os -zq -wx -we
 # ...except the four modules that ARE the inner loop.  Every pixel the
 # shell draws goes through video.c, every character through font.c, every
 # window compose through window.c and ui.c, up to 18 times a second.  For
-# those, -otexan (favour time, expand inline, no aliasing assumptions)
+# those, -otexan (favour time, expand inline, assume no pointer aliasing)
 # buys loop unrolling and strength reduction that -os declines, and the
 # handful of kilobytes it costs is the best-spent space in the build.
 CFLAGS_FAST = -bt=dos -mm -3 -otexan -zq -wx -we

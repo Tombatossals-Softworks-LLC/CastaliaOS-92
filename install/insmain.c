@@ -14,6 +14,7 @@
  * only: the installer has no reason to need 640x480.
  * ====================================================================== */
 #include <stdio.h>
+#include <stdlib.h>    /* _fullpath (the installing-onto-itself guard)   */
 #include <string.h>
 #include <direct.h>    /* mkdir                                          */
 #include <dos.h>       /* _dos_findfirst (the assets sweep)              */
@@ -147,11 +148,15 @@ static bool_t file_exists(const char *path)
     return TRUE;
 }
 
-/* Copy src onto dst; TRUE on success (missing src is the caller's call). */
+/* Copy src onto dst; TRUE on success (missing src is the caller's call).
+   A failed copy removes its half-written destination, and fclose is
+   checked: it is where the last buffered chunk reaches the disk, so a
+   full disk fails THERE and nowhere else. */
 static bool_t copy_file(const char *src, const char *dst)
 {
     FILE *in, *out;
     size_t n;
+    bool_t bad = FALSE;
     in = fopen(src, "rb");
     if (in == NULL)
         return FALSE;
@@ -162,65 +167,171 @@ static bool_t copy_file(const char *src, const char *dst)
     }
     while ((n = fread(g_buf, 1, sizeof(g_buf), in)) > 0) {
         if (fwrite(g_buf, 1, n, out) != n) {
-            fclose(in);
-            fclose(out);
-            return FALSE;
+            bad = TRUE;
+            break;
         }
     }
+    if (ferror(in))
+        bad = TRUE;
     fclose(in);
-    fclose(out);
-    return TRUE;
+    if (fclose(out) != 0)
+        bad = TRUE;
+    if (bad)
+        remove(dst);
+    return bad ? FALSE : TRUE;
 }
 
 /* The fixed part of the file set (CASTALIA.INI is keep-if-present). */
 static const char * const FIXED[4] =
     { "CASTALIA.EXE", "CASTALIA.INI", "CASTSHEL.BAT", "README.TXT" };
 
+/* The asset folders, every file in each.  ICONS alone used to be copied,
+   so an installed Castalia had no ASSETS\MEDIA - the Cinema's default
+   film and every Gramophone sample were missing - and the THEMES folder
+   was created empty. */
+#define NDIRS 3
+static const char * const DIRS[NDIRS] = { "ICONS", "MEDIA", "THEMES" };
+
 static int count_assets(void)
 {
     struct find_t ff;
     unsigned rc;
-    int n = 0;
-    rc = _dos_findfirst("ASSETS\\ICONS\\*.*", _A_RDONLY | _A_ARCH, &ff);
-    while (rc == 0) {
-        ++n;
-        rc = _dos_findnext(&ff);
+    int n = 0, d;
+    char spec[24];
+    for (d = 0; d < NDIRS; ++d) {
+        sprintf(spec, "ASSETS\\%s\\*.*", DIRS[d]);
+        rc = _dos_findfirst(spec, _A_RDONLY | _A_ARCH, &ff);
+        while (rc == 0) {
+            ++n;
+            rc = _dos_findnext(&ff);
+        }
     }
     return n;
 }
 
+static char upc(char c)
+{
+    return (char)((c >= 'a' && c <= 'z') ? c - 32 : c);
+}
+
+/* Does this AUTOEXEC.BAT line already put the target on the PATH?  A bare
+   substring test counted C:\CASTALIA2, or a REM line, as "already there".
+   Wants a PATH / SET PATH line naming the target as a whole entry. */
+static bool_t names_target(const char *line, const char *tgt_up)
+{
+    char up[128];
+    const char *p, *s;
+    int i, tl = (int)strlen(tgt_up);
+    for (i = 0; line[i] != '\0' && i < (int)sizeof(up) - 1; ++i)
+        up[i] = upc(line[i]);
+    up[i] = '\0';
+    s = up;
+    while (*s == ' ' || *s == '\t' || *s == '@')
+        ++s;
+    if (strncmp(s, "SET ", 4) == 0) {
+        s += 4;
+        while (*s == ' ' || *s == '\t')
+            ++s;
+    }
+    if (strncmp(s, "PATH", 4) != 0)
+        return FALSE;
+    for (p = strstr(s, tgt_up); p != NULL; p = strstr(p + 1, tgt_up)) {
+        char before = (p > up) ? p[-1] : ' ';
+        char after  = p[tl];
+        if ((before == ';' || before == '=' || before == ' ') &&
+            (after == '\0' || after == ';' || after == '\r' ||
+             after == '\n' || after == ' ' || after == '\\'))
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /* Append the PATH line to C:\AUTOEXEC.BAT unless it already names the
-   target.  1 = added, 0 = already there, -1 = could not write. */
+   target.  1 = added, 0 = already there, -1 = could not write.  Binary
+   mode, so the file's real last byte is visible: a file with no final
+   newline would have had the SET glued onto its last command
+   ("C:\MOUSE\MOUSE.COMSET PATH=..."), and one ending in an editor's
+   Ctrl-Z would have hidden the new line from COMMAND.COM entirely. */
 static int append_path_line(void)
 {
     FILE *f = fopen("C:\\AUTOEXEC.BAT", "r");
-    char line[128], up[128], tgt_up[TGT_MAX];
-    int i, found = 0;
+    char line[128], tgt_up[TGT_MAX];
+    int i, found = 0, last;
 
     for (i = 0; g_tgt[i] != '\0'; ++i)
-        tgt_up[i] = (char)((g_tgt[i] >= 'a' && g_tgt[i] <= 'z')
-                           ? g_tgt[i] - 32 : g_tgt[i]);
+        tgt_up[i] = upc(g_tgt[i]);
     tgt_up[i] = '\0';
 
     if (f != NULL) {
-        while (fgets(line, (int)sizeof(line), f) != NULL) {
-            for (i = 0; line[i] != '\0' && i < (int)sizeof(up) - 1; ++i)
-                up[i] = (char)((line[i] >= 'a' && line[i] <= 'z')
-                               ? line[i] - 32 : line[i]);
-            up[i] = '\0';
-            if (strstr(up, tgt_up) != NULL)
+        while (fgets(line, (int)sizeof(line), f) != NULL)
+            if (names_target(line, tgt_up))
                 found = 1;
-        }
         fclose(f);
     }
     if (found)
         return 0;
-    f = fopen("C:\\AUTOEXEC.BAT", "a");
+    f = fopen("C:\\AUTOEXEC.BAT", "r+b");
+    if (f == NULL)
+        f = fopen("C:\\AUTOEXEC.BAT", "wb");       /* there was none     */
     if (f == NULL)
         return -1;
-    fprintf(f, "SET PATH=%%PATH%%;%s\n", g_tgt);
-    fclose(f);
+    /* Look at the last two bytes: a trailing ^Z is written over, and the
+       byte before it is the one that decides whether a line break is
+       needed first. */
+    last = '\n';
+    if (fseek(f, -2L, SEEK_END) == 0) {
+        int c1 = fgetc(f), c2 = fgetc(f);
+        if (c2 == 0x1A) { last = c1; fseek(f, -1L, SEEK_END); }
+        else            { last = c2; fseek(f, 0L, SEEK_END); }
+    } else if (fseek(f, -1L, SEEK_END) == 0) {     /* a one-byte file    */
+        int c2 = fgetc(f);
+        if (c2 == 0x1A) fseek(f, -1L, SEEK_END);
+        else          { last = c2; fseek(f, 0L, SEEK_END); }
+    } else {
+        fseek(f, 0L, SEEK_END);                    /* empty or new       */
+    }
+    if (last != '\n')
+        fputs("\r\n", f);
+    fprintf(f, "SET PATH=%%PATH%%;%s\r\n", g_tgt);
+    if (fclose(f) != 0)
+        return -1;
     return 1;
+}
+
+/* Is folder `a` the same place as folder `b`?  Resolved through the C
+   library so "." and a typed absolute path compare equal. */
+static bool_t same_dir(const char *a, const char *b)
+{
+    char fa[96], fb[96];
+    int la, lb, i;
+    if (_fullpath(fa, a, sizeof(fa)) == NULL ||
+        _fullpath(fb, b, sizeof(fb)) == NULL)
+        return FALSE;
+    la = (int)strlen(fa);
+    lb = (int)strlen(fb);
+    if (la > 3 && fa[la - 1] == '\\') fa[--la] = '\0';
+    if (lb > 3 && fb[lb - 1] == '\\') fb[--lb] = '\0';
+    if (la != lb)
+        return FALSE;
+    for (i = 0; i < la; ++i)
+        if (upc(fa[i]) != upc(fb[i]))
+            return FALSE;
+    return TRUE;
+}
+
+/* Something other than Castalia already lives in the target: any file,
+   and no CASTALIA.EXE to say it is an earlier install.  Copying into it
+   would overwrite whatever README.TXT is there - C:\DOS has one. */
+static bool_t foreign_folder(void)
+{
+    struct find_t ff;
+    char spec[TGT_MAX + 16];
+    sprintf(spec, "%s\\CASTALIA.EXE", g_tgt);
+    if (file_exists(spec))
+        return FALSE;
+    sprintf(spec, "%s\\*.*", g_tgt);
+    return (_dos_findfirst(spec, _A_RDONLY | _A_ARCH | _A_HIDDEN | _A_SYSTEM,
+                           &ff) == 0) ? TRUE : FALSE;
 }
 
 /* The install proper: 1 = clean, 0 = ran but some copies failed,
@@ -230,47 +341,81 @@ static int do_install(void)
     char dst[TGT_MAX + 32];
     struct find_t ff;
     unsigned rc;
-    int total, cur = 0, i;
-    bool_t ok = TRUE;
+    int total, cur = 0, i, d, n;
 
+    n = (int)strlen(g_tgt);
+    while (n > 3 && g_tgt[n - 1] == '\\')     /* "C:\GAMES\" -> "C:\GAMES" */
+        g_tgt[--n] = '\0';
+    if (n <= 3 || g_tgt[1] != ':' || g_tgt[2] != '\\') {
+        /* An empty target built "\CASTALIA.EXE" - the root of whatever
+           drive was current - and a bare drive is the root as well. */
+        strcpy(g_status, "Type a folder, like C:\\CASTALIA");
+        return -1;
+    }
     if (!file_exists("CASTALIA.EXE")) {
         strcpy(g_status, "CASTALIA.EXE not found here");
+        return -1;
+    }
+    if (same_dir(".", g_tgt)) {
+        /* Copying a file onto itself opens it "wb" - truncating it - before
+           the read starts.  Run from the default target, this used to
+           leave every file of the install at 0 bytes. */
+        strcpy(g_status, "Already here - pick another folder");
+        return -1;
+    }
+    if (foreign_folder()) {
+        strcpy(g_status, "Folder in use - pick another");
         return -1;
     }
 
     mkdir(g_tgt);
     sprintf(dst, "%s\\ASSETS", g_tgt);        mkdir(dst);
-    sprintf(dst, "%s\\ASSETS\\ICONS", g_tgt); mkdir(dst);
+    for (d = 0; d < NDIRS; ++d) {
+        sprintf(dst, "%s\\ASSETS\\%s", g_tgt, DIRS[d]);
+        mkdir(dst);
+    }
 
     total = count_assets();
     for (i = 0; i < 4; ++i)
         if (file_exists(FIXED[i]))
             ++total;
 
-    for (i = 0; i < 4; ++i) {
-        if (!file_exists(FIXED[i]))
-            continue;
-        ++cur;
-        draw_progress(cur, total, FIXED[i]);
-        sprintf(dst, "%s\\%s", g_tgt, FIXED[i]);
-        if (i == 1 && file_exists(dst))
-            continue;                  /* keep the user's CASTALIA.INI     */
-        if (!copy_file(FIXED[i], dst))
-            ok = FALSE;
-    }
+    {
+        bool_t ok = TRUE;
+        for (i = 0; i < 4; ++i) {
+            if (!file_exists(FIXED[i]))
+                continue;
+            ++cur;
+            draw_progress(cur, total, FIXED[i]);
+            sprintf(dst, "%s\\%s", g_tgt, FIXED[i]);
+            if (i == 1 && file_exists(dst))
+                continue;              /* keep the user's CASTALIA.INI     */
+            if (!copy_file(FIXED[i], dst)) {
+                if (i == 0) {          /* no shell: nothing worth keeping  */
+                    strcpy(g_status, "Could not copy CASTALIA.EXE");
+                    return -1;
+                }
+                ok = FALSE;
+            }
+        }
 
-    rc = _dos_findfirst("ASSETS\\ICONS\\*.*", _A_RDONLY | _A_ARCH, &ff);
-    while (rc == 0) {
-        char src[32];
-        ++cur;
-        draw_progress(cur, total, ff.name);
-        sprintf(src, "ASSETS\\ICONS\\%s", ff.name);
-        sprintf(dst, "%s\\ASSETS\\ICONS\\%s", g_tgt, ff.name);
-        if (!copy_file(src, dst))
-            ok = FALSE;
-        rc = _dos_findnext(&ff);
+        for (d = 0; d < NDIRS; ++d) {
+            char spec[24];
+            sprintf(spec, "ASSETS\\%s\\*.*", DIRS[d]);
+            rc = _dos_findfirst(spec, _A_RDONLY | _A_ARCH, &ff);
+            while (rc == 0) {
+                char src[32];
+                ++cur;
+                draw_progress(cur, total, ff.name);
+                sprintf(src, "ASSETS\\%s\\%s", DIRS[d], ff.name);
+                sprintf(dst, "%s\\ASSETS\\%s\\%s", g_tgt, DIRS[d], ff.name);
+                if (!copy_file(src, dst))
+                    ok = FALSE;
+                rc = _dos_findnext(&ff);
+            }
+        }
+        return ok ? 1 : 0;
     }
-    return ok ? 1 : 0;
 }
 
 /* The all-done screen; any key leaves it. */
@@ -278,7 +423,7 @@ static void draw_done(bool_t ok, int path_state)
 {
     Rect p;
     int x, y, lh = font_h() + 3;
-    char line[44];
+    char line[TGT_MAX + 16];           /* "  " + target + "\CASTALIA"      */
 
     panel_rect(&p);
     vid_fillrect(0, 0, SCREEN_W, SCREEN_H, C_DESKTOP);
@@ -373,6 +518,9 @@ int main(void)
             {
                 int res = do_install();
                 if (res >= 0) {        /* ran: report, clean or not      */
+                    /* CASTALIA.EXE is in place (do_install bails out
+                       with -1 otherwise), so the PATH line points at a
+                       real program. */
                     int ps = g_addpath ? append_path_line() : 0;
                     draw_done((res > 0) ? TRUE : FALSE, ps);
                     kb_flush();

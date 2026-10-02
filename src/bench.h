@@ -19,5 +19,7 @@ void bench_draw(const Rect *client);
 bool_t bench_key(int key);            /* Enter re-runs; returns TRUE then  */
 bool_t bench_click(const Rect *cl, int mx, int my);  /* click re-runs      */
 bool_t bench_animating(void);         /* TRUE while the bars charge up      */
+bool_t bench_poll_damage(void);       /* TRUE once after a run: the video
+                                         tests painted over the whole scene */
 
 #endif /* BENCH_H */

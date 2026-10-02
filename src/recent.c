@@ -83,7 +83,7 @@ static bool_t far_same(const char far *a, const char *b)
 
 static FILE *rec_open(const char *mode)
 {
-    char p[80];
+    char p[132];                       /* main.c's size: a deep home fits  */
     sys_home_path(p, (int)sizeof(p), RECENT_FILE);
     return fopen(p, mode);
 }
@@ -142,8 +142,11 @@ void recent_load(void)
 
 void recent_save(void)
 {
-    FILE *f = rec_open("w");
+    FILE *f;
     int i;
+    char p[132], tmp[132];
+    sys_home_path(p, (int)sizeof(p), RECENT_FILE);
+    f = sys_save_open(p, tmp, (int)sizeof(tmp), "w");
     if (f == NULL)
         return;                        /* a lost convenience, not an error */
     for (i = 0; i < g_n; ++i) {
@@ -153,5 +156,5 @@ void recent_save(void)
         dr[CFG_PATH_LEN - 1] = '\0';
         fprintf(f, "%s\t%s\n", nm, dr);   /* near copies: fprintf is near */
     }
-    fclose(f);
+    (void)sys_commit_file(f, tmp, p);
 }

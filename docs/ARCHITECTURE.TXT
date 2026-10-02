@@ -248,8 +248,10 @@ date from F000:FFF5.  The 386-only inline helpers (PUSHFD/POPFD,
 CPUID, REP MOVSD) follow video.c's pragma-aux pattern.  The benchmark
 measures work units against the BIOS tick (spin-aligned to a tick
 edge) and renders the classic reference-bar chart; the two fixed bars
-(PC/XT, AT 286) and the 386SX/16 baseline are scale anchors, chosen
-so the measured machine lands where a period tool would put it.
+(PC/XT, AT 286) and the 386SX/16 baseline are scale anchors.  The
+386SX/16 anchors are the raw counts a real 386SX/16 returned (they
+were first tuned under DOSBox, which made the datum machine score
+~0.6x itself); the two fixed bars are period-tool placements.
 
 AGENDA AND HEX PEEK  (agenda.c, peek.c)
 ---------------------------------------
@@ -578,7 +580,8 @@ never disturbs where the Disk Cabinet is pointing.
 
 FREE-MEMORY LAUNCH (unloading the shell for big games)
 ------------------------------------------------------
-Staying resident costs a launched program ~120 KB of conventional memory -
+Staying resident costs a launched program most of conventional memory
+(the EXE alone is ~400 KB; a real 4 MB 386SX/16 had 14 KB left) -
 fine for tools, a problem for a memory-hungry game.  A [shortcut] marked
 freemem=true takes a different path (main.c launch_entry ->
 launcher_write_runfile):

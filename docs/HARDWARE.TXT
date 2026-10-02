@@ -39,9 +39,13 @@ BEFORE YOU START - RECORD THE MACHINE
 -------------------------------
   [ ] With HIMEM.SYS loaded, Castalia starts.  The System Inspector
       reports a total RAM figure that matches what the POST said.
-      (The probe asks the XMS manager over INT 2Fh AX=4300h and only
-      falls back to INT 15h AH=88h - system.c.  A machine that reports
-      through neither is the interesting case.)
+      (Total = INT 12h base + the extended memory CMOS 30h/31h counted
+      at POST - system.c.  The XMS manager, INT 2Fh AX=4300h, reports
+      what is FREE, which is what the XMS gauge shows; it used to be
+      added into the total, and lap 1 caught it.  A machine whose CMOS
+      reads 0 falls back to the XMS / INT 15h AH=88h figure.)
+  [ ] The FPU line matches the board: "80x87 ok" only with a 287/387
+      fitted (FNINIT/FNSTSW probe), "none" without one.
   [ ] With no HIMEM.SYS on a 1 MB machine, it still starts: the
       fallback has to see the extended memory the BIOS knows about.
   [ ] On a machine with less than 1 MB, it refuses with a readable
@@ -172,7 +176,11 @@ tested against a real drive, only against DOSBox's idea of one.
 9. SPEED, HONESTLY MEASURED
 ---------------------------
   [ ] Run Benchmark and record the CASTALIA SCORE and the machine
-      class it prints.
+      class it prints, AND the six raw counts.  The 386SX/16 anchors
+      are lap 1's raw counts, so a 386SX/16 should land near 100; a
+      different result on another SX/16 is worth a note (wait states,
+      cache).  Do the same for the Oracle's benchmark page: its two
+      memory anchors are still estimates.
   [ ] Record whether the desktop feels usable in BOTH video modes.
       Mode 12h on a 386SX is the honest worst case and the one the
       README's claim rests on.
@@ -199,3 +207,30 @@ known gap; a gap that is not is a claim.
 86Box and PCem laps are worth running too, but they are not a
 substitute and they cannot be automated here: both need real BIOS ROM
 images, which cannot be committed to this repository or fetched in CI.
+
+RECORDED LAPS
+-------------
+LAP 1 - PARTIAL (sections 1 and 9 only), Castalia 0.56
+    CPU ................ 386SX, 16 MHz
+    RAM ................ 4 MB (INT 12h 639 KB, so a 1 KB EBDA)
+    FPU ................ the BIOS equipment word claimed one; not
+                         independently confirmed
+    Video .............. VGA, Mode 13h; chip not recorded
+    Monitor ............ Dell CRT
+    Mouse .............. an INT 33h driver; type and version not
+                         recorded (BIOS lists no COM or LPT ports)
+    DOS ................ MS-DOS 7.10
+    Disk ............... C: 487 MB, two floppy drives
+    Evidence ........... eight photographs of the screen taken by the
+                         tester (not committed to the repository)
+
+  Section 1: Castalia started.  Total RAM read 3658 KB on a 4 MB board -
+      FAILED, base + free XMS (fixed: base + CMOS extended memory).
+      14 KB of conventional memory free with the desktop up; the docs
+      said ~120 KB resident (corrected).
+  Section 9: Benchmark SCORE 59, "286 / early-386 class", raw counts
+      ALU 64, Integer 35, Mem copy 24, Mem read 39, Vid fill 67,
+      Vid line 32 - on the very machine the anchors claimed as 1.00x.
+      FAILED (the anchors were tuned under DOSBox); those six counts
+      are now the anchors.
+  Not run: sections 2-8, Mode 12h, the Oracle's benchmark page.
